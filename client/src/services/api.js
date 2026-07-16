@@ -33,6 +33,20 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    const authPaths = [
+      '/auth/login',
+      '/auth/register',
+      '/auth/refresh',
+      '/auth/forgot-password',
+      '/auth/reset-password',
+      '/auth/verify-email',
+      '/auth/resend-verification',
+    ];
+
+    if (authPaths.some((path) => originalRequest?.url?.includes(path))) {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -46,26 +60,22 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = localStorage.getItem('ams-refresh-token');
-      if (!refreshToken) {
-        isRefreshing = false;
-        localStorage.removeItem('ams-token');
-        window.location.href = '/login';
-        return Promise.reject(error);
-      }
-
       try {
-        const res = await axios.post('/api/v1/auth/refresh-token', { refreshToken });
-        const { token } = res.data;
-        localStorage.setItem('ams-token', token);
-        api.defaults.headers.common.Authorization = `Bearer ${token}`;
-        processQueue(null, token);
-        originalRequest.headers.Authorization = `Bearer ${token}`;
+        const res = await axios.post('/api/v1/auth/refresh', {}, { withCredentials: true });
+        const newAccessToken = res.data?.data?.accessToken;
+
+        if (!newAccessToken) {
+          throw new Error('Missing refresh access token');
+        }
+
+        localStorage.setItem('ams-token', newAccessToken);
+        api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+        processQueue(null, newAccessToken);
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
         localStorage.removeItem('ams-token');
-        localStorage.removeItem('ams-refresh-token');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {

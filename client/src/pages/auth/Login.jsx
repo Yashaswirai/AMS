@@ -166,10 +166,10 @@ function Login() {
 
       {/* Demo credentials */}
       <div className="mt-6 p-3 rounded-xl" style={{ background: 'rgba(99,102,241,0.06)', border: '1px dashed rgba(99,102,241,0.3)' }}>
-        <p className="text-xs font-semibold mb-1" style={{ color: '#6366f1' }}>Demo Credentials</p>
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Admin: admin@ams.edu / admin123</p>
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Teacher: teacher@ams.edu / teacher123</p>
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Student: student@ams.edu / student123</p>
+        <p className="text-xs font-semibold mb-1" style={{ color: '#6366f1' }}>Seeded Demo Credentials</p>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Admin: admin@frams.edu / Admin@123</p>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Teacher: teacher1@frams.edu / Teacher@123</p>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Student: student1@frams.edu / Student@123</p>
       </div>
     </motion.div>
   );

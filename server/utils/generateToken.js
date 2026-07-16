@@ -4,8 +4,8 @@ import jwt from 'jsonwebtoken';
  * Generate JWT access token (short-lived)
  */
 export const generateAccessToken = (payload) => {
-  return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || '15m',
+  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
+    expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m',
     issuer: 'FRAMS',
     audience: 'frams-client',
   });
@@ -16,7 +16,7 @@ export const generateAccessToken = (payload) => {
  */
 export const generateRefreshToken = (payload) => {
   return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRE || '7d',
+    expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d',
     issuer: 'FRAMS',
     audience: 'frams-client',
   });
@@ -42,7 +42,7 @@ export const generateTokenPair = (user) => {
  * Verify access token
  */
 export const verifyAccessToken = (token) => {
-  return jwt.verify(token, process.env.JWT_SECRET, {
+  return jwt.verify(token, process.env.JWT_ACCESS_SECRET, {
     issuer: 'FRAMS',
     audience: 'frams-client',
   });

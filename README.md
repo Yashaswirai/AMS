@@ -112,9 +112,9 @@ uvicorn main:app --reload --port 8000 # Runs on http://localhost:8000
 
 If you ran `npm run seed` during installation, log in using the following default test accounts:
 
-*   **Administrator**: `admin@ams.com` | Password: `adminPassword123`
-*   **Teacher**: `teacher@ams.com` | Password: `teacherPassword123`
-*   **Student**: `student@ams.com` | Password: `studentPassword123`
+*   **Administrator**: `admin@frams.edu` | Password: `Admin@123`
+*   **Teacher**: `teacher1@frams.edu` | Password: `Teacher@123`
+*   **Student**: `student1@frams.edu` | Password: `Student@123`
 
 ---
 

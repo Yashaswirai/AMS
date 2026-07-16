@@ -18,7 +18,6 @@ export function AuthProvider({ children }) {
       setUser(res.data.user);
     } catch {
       localStorage.removeItem('ams-token');
-      localStorage.removeItem('ams-refresh-token');
       setUser(null);
     } finally {
       setLoading(false);
@@ -29,9 +28,14 @@ export function AuthProvider({ children }) {
 
   const login = async (credentials) => {
     const res = await api.post('/auth/login', credentials);
-    const { token, refreshToken, user: userData } = res.data;
-    localStorage.setItem('ams-token', token);
-    if (refreshToken) localStorage.setItem('ams-refresh-token', refreshToken);
+    const payload = res.data?.data ?? {};
+    const { accessToken, user: userData } = payload;
+
+    if (!accessToken || !userData) {
+      throw new Error('Login response was incomplete');
+    }
+
+    localStorage.setItem('ams-token', accessToken);
     setUser(userData);
     toast.success(`Welcome back, ${userData.name}!`);
     const roleRoutes = {
@@ -45,18 +49,9 @@ export function AuthProvider({ children }) {
 
   const register = async (data) => {
     const res = await api.post('/auth/register', data);
-    const { token, refreshToken, user: userData } = res.data;
-    localStorage.setItem('ams-token', token);
-    if (refreshToken) localStorage.setItem('ams-refresh-token', refreshToken);
-    setUser(userData);
-    toast.success('Account created successfully!');
-    const roleRoutes = {
-      admin: '/admin/dashboard',
-      teacher: '/teacher/dashboard',
-      student: '/student/dashboard',
-    };
-    navigate(roleRoutes[userData.role] || '/login');
-    return userData;
+    toast.success(res.data?.message || 'Account created successfully!');
+    navigate('/login');
+    return res.data?.data;
   };
 
   const logout = async () => {
@@ -64,7 +59,6 @@ export function AuthProvider({ children }) {
       await api.post('/auth/logout');
     } catch {}
     localStorage.removeItem('ams-token');
-    localStorage.removeItem('ams-refresh-token');
     setUser(null);
     toast.success('Logged out successfully');
     navigate('/login');
