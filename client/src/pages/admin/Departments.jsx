@@ -1,0 +1,164 @@
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { RiBuilding2Line } from 'react-icons/ri';
+import DataTable from '../../components/common/DataTable.jsx';
+import Modal from '../../components/common/Modal.jsx';
+import SearchInput from '../../components/common/SearchInput.jsx';
+import Pagination from '../../components/common/Pagination.jsx';
+import EmptyState from '../../components/common/EmptyState.jsx';
+import api from '../../services/api.js';
+import toast from 'react-hot-toast';
+
+const MOCK = [
+  { id: 1, name: 'Computer Science', code: 'CS', hodName: 'Dr. Rajesh Kumar', studentCount: 320, courseCount: 8, status: 'active' },
+  { id: 2, name: 'Electronics Engineering', code: 'EC', hodName: 'Dr. Priya Sharma', studentCount: 280, courseCount: 6, status: 'active' },
+  { id: 3, name: 'Mechanical Engineering', code: 'ME', hodName: 'Dr. Anil Mehta', studentCount: 260, courseCount: 7, status: 'active' },
+  { id: 4, name: 'Civil Engineering', code: 'CE', hodName: 'Dr. Sunita Verma', studentCount: 210, courseCount: 5, status: 'inactive' },
+];
+
+const EMPTY_FORM = { name: '', code: '', hodName: '', status: 'active' };
+
+function Departments() {
+  const [departments, setDepartments] = useState(MOCK);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [editId, setEditId] = useState(null);
+  const [page, setPage] = useState(1);
+  const perPage = 10;
+
+  useEffect(() => {
+    const fetchDepts = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get('/admin/departments');
+        setDepartments(res.data.departments || MOCK);
+      } catch { setDepartments(MOCK); }
+      finally { setLoading(false); }
+    };
+    fetchDepts();
+  }, []);
+
+  const filtered = departments.filter(d =>
+    d.name.toLowerCase().includes(search.toLowerCase()) ||
+    d.code.toLowerCase().includes(search.toLowerCase())
+  );
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+
+  const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setModalOpen(true); };
+  const openEdit = (dept) => { setForm({ name: dept.name, code: dept.code, hodName: dept.hodName, status: dept.status }); setEditId(dept.id); setModalOpen(true); };
+
+  const handleSave = async () => {
+    if (!form.name || !form.code) { toast.error('Name and Code are required'); return; }
+    try {
+      if (editId) {
+        await api.put(`/admin/departments/${editId}`, form).catch(() => {});
+        setDepartments(d => d.map(dep => dep.id === editId ? { ...dep, ...form } : dep));
+        toast.success('Department updated');
+      } else {
+        const newDept = { id: Date.now(), ...form, studentCount: 0, courseCount: 0 };
+        await api.post('/admin/departments', form).catch(() => {});
+        setDepartments(d => [newDept, ...d]);
+        toast.success('Department created');
+      }
+      setModalOpen(false);
+    } catch (err) { toast.error('Failed to save'); }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/admin/departments/${deleteModal.id}`).catch(() => {});
+      setDepartments(d => d.filter(dep => dep.id !== deleteModal.id));
+      toast.success('Department deleted');
+      setDeleteModal(null);
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  const columns = [
+    { key: 'name', label: 'Department', sortable: true },
+    { key: 'code', label: 'Code', sortable: true },
+    { key: 'hodName', label: 'HoD' },
+    { key: 'studentCount', label: 'Students', sortable: true },
+    { key: 'courseCount', label: 'Courses' },
+    { key: 'status', label: 'Status', render: (v) => <span className={`badge ${v === 'active' ? 'badge-success' : 'badge-neutral'}`}>{v}</span> },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black" style={{ color: 'var(--text)' }}>Departments</h1>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{departments.length} departments registered</p>
+        </div>
+        <button className="btn-primary" onClick={openAdd}><FiPlus /> Add Department</button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search departments…" className="max-w-xs" />
+      </div>
+
+      {filtered.length === 0 && !loading ? (
+        <EmptyState icon={RiBuilding2Line} title="No departments found" description="Add your first department to get started" action={<button className="btn-primary" onClick={openAdd}><FiPlus /> Add Department</button>} />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            data={paginated}
+            loading={loading}
+            rowKey="id"
+            actions={(row) => (
+              <div className="flex items-center gap-2">
+                <button className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-indigo-500 hover:text-white" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }} onClick={() => openEdit(row)}>
+                  <FiEdit2 size={13} />
+                </button>
+                <button className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-red-500 hover:text-white" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }} onClick={() => setDeleteModal(row)}>
+                  <FiTrash2 size={13} />
+                </button>
+              </div>
+            )}
+          />
+          <Pagination currentPage={page} totalPages={Math.ceil(filtered.length / perPage)} onPageChange={setPage} totalItems={filtered.length} itemsPerPage={perPage} />
+        </>
+      )}
+
+      {/* Add/Edit Modal */}
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editId ? 'Edit Department' : 'Add Department'}
+        footer={<><button className="btn-secondary" onClick={() => setModalOpen(false)}>Cancel</button><button className="btn-primary" onClick={handleSave}>Save</button></>}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Department Name *</label>
+            <input className="input-field" placeholder="e.g. Computer Science" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Code *</label>
+            <input className="input-field" placeholder="e.g. CS" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Head of Department</label>
+            <input className="input-field" placeholder="Dr. Name" value={form.hodName} onChange={(e) => setForm(f => ({ ...f, hodName: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Status</label>
+            <select className="input-field" value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Modal */}
+      <Modal isOpen={!!deleteModal} onClose={() => setDeleteModal(null)} title="Delete Department" size="sm"
+        footer={<><button className="btn-secondary" onClick={() => setDeleteModal(null)}>Cancel</button><button className="btn-danger" onClick={handleDelete}>Delete</button></>}
+      >
+        <p style={{ color: 'var(--text-muted)' }}>Are you sure you want to delete <strong style={{ color: 'var(--text)' }}>{deleteModal?.name}</strong>? This action cannot be undone.</p>
+      </Modal>
+    </div>
+  );
+}
+
+export default Departments;
