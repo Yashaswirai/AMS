@@ -32,6 +32,10 @@ export const loginValidator = [
 
   body('password')
     .notEmpty().withMessage('Password is required'),
+
+  body('role')
+    .optional()
+    .isIn(['student', 'teacher', 'admin']).withMessage('Invalid role'),
 ];
 
 export const forgotPasswordValidator = [
