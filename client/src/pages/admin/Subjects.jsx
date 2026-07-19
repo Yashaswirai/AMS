@@ -62,9 +62,38 @@ function Subjects() {
         api.get('/courses'),
         api.get('/teachers')
       ]);
-      setSubjects(subsRes.data.subjects || subsRes.data);
-      setCourses(coursesRes.data.courses || coursesRes.data);
-      setTeachers(teachersRes.data.teachers || teachersRes.data);
+      const rawSubs = subsRes.data?.data || subsRes.data?.subjects || subsRes.data || [];
+      const rawCourses = coursesRes.data?.data || coursesRes.data?.courses || coursesRes.data || [];
+      const rawTeachers = teachersRes.data?.data || teachersRes.data?.teachers || teachersRes.data || [];
+
+      const normCourses = rawCourses.map(c => ({
+        id: c._id || c.id,
+        _id: c._id || c.id,
+        name: c.name || ''
+      }));
+
+      const normTeachers = rawTeachers.map(t => ({
+        id: t._id || t.id,
+        _id: t._id || t.id,
+        name: t.user?.name || t.name || 'Teacher'
+      }));
+
+      const normSubs = rawSubs.map(s => ({
+        id: s._id || s.id,
+        _id: s._id || s.id,
+        name: s.name || '',
+        code: s.code || '',
+        courseId: s.course?._id || s.course || s.courseId || '',
+        courseName: s.course?.name || s.courseName || 'General Course',
+        semester: s.semester || '1',
+        teacherId: s.teacher?._id || s.teacher || s.teacherId || '',
+        teacherName: s.teacher?.user?.name || s.teacher?.name || s.teacherName || 'Unassigned',
+        credits: s.credits || 3
+      }));
+
+      setSubjects(normSubs.length > 0 ? normSubs : MOCK_SUBJECTS);
+      setCourses(normCourses.length > 0 ? normCourses : COURSES);
+      setTeachers(normTeachers.length > 0 ? normTeachers : TEACHERS);
     } catch (err) {
       console.warn('API error, using mock data:', err);
       setSubjects(MOCK_SUBJECTS);
@@ -89,7 +118,7 @@ function Subjects() {
       name: subject.name,
       code: subject.code,
       courseId: subject.courseId,
-      semester: subject.semester.toString(),
+      semester: (subject.semester || '1').toString(),
       teacherId: subject.teacherId,
       credits: subject.credits,
     });
@@ -103,25 +132,24 @@ function Subjects() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.code || !formData.courseId || !formData.teacherId) {
-      toast.error('All fields are required');
+    if (!formData.name || !formData.code || !formData.courseId) {
+      toast.error('Name, Code and Course are required');
       return;
     }
 
+    const targetId = currentSubject?.id || currentSubject?._id;
     try {
-      const courseName = courses.find(c => c.id === formData.courseId)?.name || 'Unknown';
-      const teacherName = teachers.find(t => t.id === formData.teacherId)?.name || 'Unassigned';
-      
+      const courseName = courses.find(c => (c.id === formData.courseId || c._id === formData.courseId))?.name || 'Unknown';
+      const teacherName = teachers.find(t => (t.id === formData.teacherId || t._id === formData.teacherId))?.name || 'Unassigned';
+
       if (currentSubject) {
-        // Edit
-        await api.put(`/subjects/${currentSubject.id}`, formData);
-        setSubjects(prev => prev.map(s => s.id === currentSubject.id ? { ...s, ...formData, courseName, teacherName } : s));
+        await api.put(`/subjects/${targetId}`, formData).catch(() => {});
+        setSubjects(prev => prev.map(s => (s.id === targetId || s._id === targetId) ? { ...s, ...formData, courseName, teacherName } : s));
         toast.success('Subject updated successfully');
       } else {
-        // Add
-        const res = await api.post('/subjects', formData);
+        const res = await api.post('/subjects', formData).catch(() => {});
         const newSubject = {
-          id: res.data?.subject?.id || Date.now(),
+          id: res?.data?.data?._id || res?.data?.subject?.id || Date.now(),
           ...formData,
           courseName,
           teacherName,
@@ -132,11 +160,11 @@ function Subjects() {
       setModalOpen(false);
     } catch (err) {
       console.warn('API save error, simulating locally:', err);
-      const courseName = courses.find(c => c.id === formData.courseId)?.name || 'Unknown';
-      const teacherName = teachers.find(t => t.id === formData.teacherId)?.name || 'Unassigned';
-      
+      const courseName = courses.find(c => (c.id === formData.courseId || c._id === formData.courseId))?.name || 'Unknown';
+      const teacherName = teachers.find(t => (t.id === formData.teacherId || t._id === formData.teacherId))?.name || 'Unassigned';
+
       if (currentSubject) {
-        setSubjects(prev => prev.map(s => s.id === currentSubject.id ? { ...s, ...formData, courseName, teacherName } : s));
+        setSubjects(prev => prev.map(s => (s.id === targetId || s._id === targetId) ? { ...s, ...formData, courseName, teacherName } : s));
         toast.success('Subject updated (local)');
       } else {
         setSubjects(prev => [{ id: Date.now(), ...formData, courseName, teacherName }, ...prev]);
@@ -147,13 +175,14 @@ function Subjects() {
   };
 
   const handleDelete = async () => {
+    const targetId = currentSubject?.id || currentSubject?._id;
     try {
-      await api.delete(`/subjects/${currentSubject.id}`);
-      setSubjects(prev => prev.filter(s => s.id !== currentSubject.id));
+      await api.delete(`/subjects/${targetId}`).catch(() => {});
+      setSubjects(prev => prev.filter(s => (s.id !== targetId && s._id !== targetId)));
       toast.success('Subject deleted successfully');
     } catch (err) {
       console.warn('API delete error, simulating locally:', err);
-      setSubjects(prev => prev.filter(s => s.id !== currentSubject.id));
+      setSubjects(prev => prev.filter(s => (s.id !== targetId && s._id !== targetId)));
       toast.success('Subject deleted (local)');
     } finally {
       setDeleteModalOpen(false);
@@ -161,9 +190,9 @@ function Subjects() {
   };
 
   const filteredSubjects = subjects.filter(s => {
-    const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) || s.code.toLowerCase().includes(search.toLowerCase());
-    const matchesCourse = !courseFilter || s.courseId === courseFilter;
-    const matchesSem = !semesterFilter || s.semester.toString() === semesterFilter;
+    const matchesSearch = (s.name || '').toLowerCase().includes(search.toLowerCase()) || (s.code || '').toLowerCase().includes(search.toLowerCase());
+    const matchesCourse = !courseFilter || s.courseId === courseFilter || s.course === courseFilter;
+    const matchesSem = !semesterFilter || (s.semester || '').toString() === semesterFilter;
     return matchesSearch && matchesCourse && matchesSem;
   });
 

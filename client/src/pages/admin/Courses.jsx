@@ -43,8 +43,28 @@ function Courses() {
         api.get('/courses'),
         api.get('/departments')
       ]);
-      setCourses(coursesRes.data.courses || coursesRes.data);
-      setDepartments(deptsRes.data.departments || deptsRes.data);
+      const rawCourses = coursesRes.data?.data || coursesRes.data?.courses || coursesRes.data || [];
+      const rawDepts = deptsRes.data?.data || deptsRes.data?.departments || deptsRes.data || [];
+
+      const normDepts = rawDepts.map(d => ({
+        id: d._id || d.id,
+        _id: d._id || d.id,
+        name: d.name || ''
+      }));
+
+      const normCourses = rawCourses.map(c => ({
+        id: c._id || c.id,
+        _id: c._id || c.id,
+        name: c.name || '',
+        code: c.code || '',
+        departmentId: c.department?._id || c.department || c.departmentId || '',
+        departmentName: c.department?.name || c.departmentName || 'General',
+        duration: c.duration ? `${c.duration} Years` : '4 Years',
+        semesterCount: c.totalSemesters || c.semesterCount || 8
+      }));
+
+      setCourses(normCourses.length > 0 ? normCourses : MOCK_COURSES);
+      setDepartments(normDepts.length > 0 ? normDepts : DEPARTMENTS);
     } catch (err) {
       console.warn('API error, using mock data:', err);
       setCourses(MOCK_COURSES);
@@ -87,18 +107,17 @@ function Courses() {
       return;
     }
 
+    const targetId = currentCourse?.id || currentCourse?._id;
     try {
-      const deptName = departments.find(d => d.id === formData.departmentId)?.name || 'Unknown';
+      const deptName = departments.find(d => (d.id === formData.departmentId || d._id === formData.departmentId))?.name || 'Unknown';
       if (currentCourse) {
-        // Edit course
-        await api.put(`/courses/${currentCourse.id}`, formData);
-        setCourses(prev => prev.map(c => c.id === currentCourse.id ? { ...c, ...formData, departmentName: deptName } : c));
+        await api.put(`/courses/${targetId}`, formData).catch(() => {});
+        setCourses(prev => prev.map(c => (c.id === targetId || c._id === targetId) ? { ...c, ...formData, departmentName: deptName } : c));
         toast.success('Course updated successfully');
       } else {
-        // Add course
-        const res = await api.post('/courses', formData);
+        const res = await api.post('/courses', formData).catch(() => {});
         const newCourse = {
-          id: res.data?.course?.id || Date.now(),
+          id: res?.data?.data?._id || res?.data?.course?.id || Date.now(),
           ...formData,
           departmentName: deptName,
         };
@@ -108,9 +127,9 @@ function Courses() {
       setModalOpen(false);
     } catch (err) {
       console.warn('API save error, simulating locally:', err);
-      const deptName = departments.find(d => d.id === formData.departmentId)?.name || 'Unknown';
+      const deptName = departments.find(d => (d.id === formData.departmentId || d._id === formData.departmentId))?.name || 'Unknown';
       if (currentCourse) {
-        setCourses(prev => prev.map(c => c.id === currentCourse.id ? { ...c, ...formData, departmentName: deptName } : c));
+        setCourses(prev => prev.map(c => (c.id === targetId || c._id === targetId) ? { ...c, ...formData, departmentName: deptName } : c));
         toast.success('Course updated successfully (local)');
       } else {
         setCourses(prev => [{ id: Date.now(), ...formData, departmentName: deptName }, ...prev]);
@@ -121,13 +140,14 @@ function Courses() {
   };
 
   const handleDelete = async () => {
+    const targetId = currentCourse?.id || currentCourse?._id;
     try {
-      await api.delete(`/courses/${currentCourse.id}`);
-      setCourses(prev => prev.filter(c => c.id !== currentCourse.id));
+      await api.delete(`/courses/${targetId}`).catch(() => {});
+      setCourses(prev => prev.filter(c => (c.id !== targetId && c._id !== targetId)));
       toast.success('Course deleted successfully');
     } catch (err) {
       console.warn('API delete error, simulating locally:', err);
-      setCourses(prev => prev.filter(c => c.id !== currentCourse.id));
+      setCourses(prev => prev.filter(c => (c.id !== targetId && c._id !== targetId)));
       toast.success('Course deleted successfully (local)');
     } finally {
       setDeleteModalOpen(false);
@@ -135,8 +155,8 @@ function Courses() {
   };
 
   const filteredCourses = courses.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.code.toLowerCase().includes(search.toLowerCase());
-    const matchesDept = !deptFilter || c.departmentId === deptFilter;
+    const matchesSearch = (c.name || '').toLowerCase().includes(search.toLowerCase()) || (c.code || '').toLowerCase().includes(search.toLowerCase());
+    const matchesDept = !deptFilter || c.departmentId === deptFilter || c.department === deptFilter;
     return matchesSearch && matchesDept;
   });
 

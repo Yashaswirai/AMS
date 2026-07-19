@@ -43,9 +43,10 @@ function FaceDatasets() {
     setLoading(true);
     try {
       const res = await api.get('/face/datasets');
-      setDatasets(res.data.datasets || res.data);
+      const list = res.data?.data?.datasets || res.data?.datasets || [];
+      setDatasets(list);
     } catch (err) {
-      console.warn('API error, using mock datasets:', err);
+      console.warn('API error, using fallback datasets:', err);
       setDatasets(MOCK_DATASETS);
     } finally {
       setLoading(false);
@@ -60,13 +61,12 @@ function FaceDatasets() {
     setTraining(true);
     const toastId = toast.loading('Initiating AI Model Training...');
     try {
-      await api.post('/face/train');
-      toast.success('AI Model trained and deployed successfully!', { id: toastId });
+      const res = await api.post('/face/train');
+      const msg = res.data?.message || 'AI Model trained and deployed successfully!';
+      toast.success(msg, { id: toastId });
     } catch (err) {
-      console.warn('API error, simulating model training:', err);
-      // Simulate delay
-      await new Promise(r => setTimeout(r, 3000));
-      toast.success('AI Model retrained successfully with 30 updated face signatures! (local simulation)', { id: toastId });
+      console.warn('API error during retrain:', err);
+      toast.error('Model retraining failed or CV API offline', { id: toastId });
     } finally {
       setTraining(false);
     }
@@ -74,39 +74,33 @@ function FaceDatasets() {
 
   const handleDeleteImage = async (studentId, imageIndex) => {
     try {
-      await api.delete(`/face/datasets/${studentId}/image/${imageIndex}`);
+      await api.delete(`/face/dataset/${studentId}/image/${imageIndex}`);
       toast.success('Image deleted from biometric database');
       setDatasets(prev =>
         prev.map(d =>
           d.studentId === studentId
-            ? { ...d, imagesCount: d.imagesCount - 1, images: d.images.filter((_, idx) => idx !== imageIndex) }
+            ? { ...d, imagesCount: Math.max(0, d.imagesCount - 1), images: d.images.filter((_, idx) => idx !== imageIndex) }
             : d
         )
       );
+      if (selectedStudent?.studentId === studentId) {
+        setSelectedStudent(prev => prev ? { ...prev, imagesCount: Math.max(0, prev.imagesCount - 1), images: prev.images.filter((_, idx) => idx !== imageIndex) } : null);
+      }
     } catch (err) {
-      console.warn('API error, simulating delete image:', err);
-      toast.success('Image removed from local dataset');
-      setDatasets(prev =>
-        prev.map(d =>
-          d.studentId === studentId
-            ? { ...d, imagesCount: d.imagesCount - 1, images: d.images.filter((_, idx) => idx !== imageIndex) }
-            : d
-        )
-      );
+      console.warn('API error deleting image:', err);
+      toast.error('Failed to delete image');
     }
   };
 
   const handleClearDataset = async (studentId) => {
     try {
-      await api.delete(`/face/datasets/${studentId}`);
+      await api.delete(`/face/dataset/${studentId}`);
       toast.success('Student face print database cleared');
       setDatasets(prev => prev.filter(d => d.studentId !== studentId));
       if (selectedStudent?.studentId === studentId) setSelectedStudent(null);
     } catch (err) {
-      console.warn('API error, simulating clear dataset:', err);
-      toast.success('Student dataset cleared (local)');
-      setDatasets(prev => prev.filter(d => d.studentId !== studentId));
-      if (selectedStudent?.studentId === studentId) setSelectedStudent(null);
+      console.warn('API error clearing dataset:', err);
+      toast.error('Failed to clear student dataset');
     }
   };
 

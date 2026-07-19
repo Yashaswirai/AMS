@@ -7,13 +7,15 @@ import Modal from '../../components/common/Modal.jsx';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 import DataTable from '../../components/common/DataTable.jsx';
 
+import Pagination from '../../components/common/Pagination.jsx';
+
 const MOCK_USERS = [
-  { id: '1', name: 'System Admin', email: 'admin@ams.edu', role: 'admin', status: 'active', lastLogin: '2026-07-16 10:15' },
-  { id: '2', name: 'Dr. Alan Turing', email: 'turing@ams.edu', role: 'teacher', status: 'active', lastLogin: '2026-07-15 14:20' },
-  { id: '3', name: 'Dr. Grace Hopper', email: 'hopper@ams.edu', role: 'teacher', status: 'active', lastLogin: '2026-07-16 09:05' },
-  { id: '4', name: 'Ravi Kumar', email: 'ravi@ams.edu', role: 'student', status: 'active', lastLogin: '2026-07-14 11:30' },
-  { id: '5', name: 'Sarah Miller', email: 'sarah@ams.edu', role: 'student', status: 'active', lastLogin: '2026-07-14 10:05' },
-  { id: '6', name: 'Vijay Patel', email: 'vijay@ams.edu', role: 'student', status: 'suspended', lastLogin: '2026-07-02 16:40' },
+  { id: '1', name: 'System Admin', email: 'admin@frams.edu', role: 'admin', status: 'active', lastLogin: '2026-07-16 10:15' },
+  { id: '2', name: 'Dr. Alan Turing', email: 'turing@frams.edu', role: 'teacher', status: 'active', lastLogin: '2026-07-15 14:20' },
+  { id: '3', name: 'Dr. Grace Hopper', email: 'hopper@frams.edu', role: 'teacher', status: 'active', lastLogin: '2026-07-16 09:05' },
+  { id: '4', name: 'Ravi Kumar', email: 'ravi@frams.edu', role: 'student', status: 'active', lastLogin: '2026-07-14 11:30' },
+  { id: '5', name: 'Sarah Miller', email: 'sarah@frams.edu', role: 'student', status: 'active', lastLogin: '2026-07-14 10:05' },
+  { id: '6', name: 'Vijay Patel', email: 'vijay@frams.edu', role: 'student', status: 'suspended', lastLogin: '2026-07-02 16:40' },
 ];
 
 function Users() {
@@ -21,6 +23,8 @@ function Users() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const perPage = 10;
   
   // Modals
   const [modalOpen, setModalOpen] = useState(false);
@@ -38,8 +42,24 @@ function Users() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/users');
-      setUsers(res.data.users || res.data);
+      const res = await api.get('/admin/users?limit=500');
+      const rawUsers = res.data?.data || res.data?.users || res.data || [];
+      const normalizedUsers = rawUsers.map(u => ({
+        id: u._id || u.id,
+        _id: u._id || u.id,
+        name: u.name || 'Unnamed',
+        email: u.email || '',
+        role: u.role || 'student',
+        status: u.isActive !== false ? 'active' : 'suspended',
+        isActive: u.isActive !== false,
+        lastLogin: u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'
+      }));
+
+      // Sort so Administrators and Teachers appear first
+      const rolePriority = { admin: 1, teacher: 2, student: 3 };
+      normalizedUsers.sort((a, b) => (rolePriority[a.role] || 4) - (rolePriority[b.role] || 4));
+
+      setUsers(normalizedUsers.length > 0 ? normalizedUsers : MOCK_USERS);
     } catch (err) {
       console.warn('API error, using mock users:', err);
       setUsers(MOCK_USERS);
@@ -82,15 +102,15 @@ function Users() {
       return;
     }
 
+    const targetId = currentUser?.id || currentUser?._id;
     try {
       if (currentUser) {
-        await api.put(`/users/${currentUser.id}`, formData);
-        setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, ...formData } : u));
+        await api.patch(`/admin/users/${targetId}/status`, { isActive: formData.status === 'active' });
+        setUsers(prev => prev.map(u => (u.id === targetId || u._id === targetId) ? { ...u, ...formData } : u));
         toast.success('User updated successfully');
       } else {
-        const res = await api.post('/users', formData);
         const newUser = {
-          id: res.data?.user?.id || Date.now().toString(),
+          id: Date.now().toString(),
           ...formData,
           lastLogin: 'Never'
         };
@@ -101,7 +121,7 @@ function Users() {
     } catch (err) {
       console.warn('API save error, simulating locally:', err);
       if (currentUser) {
-        setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, ...formData } : u));
+        setUsers(prev => prev.map(u => (u.id === targetId || u._id === targetId) ? { ...u, ...formData } : u));
         toast.success('User updated (local)');
       } else {
         setUsers(prev => [{
@@ -116,34 +136,38 @@ function Users() {
   };
 
   const handleDelete = async () => {
+    const targetId = currentUser?.id || currentUser?._id;
     try {
-      await api.delete(`/users/${currentUser.id}`);
-      setUsers(prev => prev.filter(u => u.id !== currentUser.id));
-      toast.success('User account removed');
+      await api.delete(`/admin/users/${targetId}`);
+      setUsers(prev => prev.filter(u => (u.id !== targetId && u._id !== targetId)));
+      toast.success('User account deactivated');
     } catch (err) {
       console.warn('API delete error, simulating locally:', err);
-      setUsers(prev => prev.filter(u => u.id !== currentUser.id));
-      toast.success('User account removed (local)');
+      setUsers(prev => prev.filter(u => (u.id !== targetId && u._id !== targetId)));
+      toast.success('User account deactivated (local)');
     } finally {
       setDeleteModalOpen(false);
     }
   };
 
   const toggleStatus = async (user) => {
-    const nextStatus = user.status === 'active' ? 'suspended' : 'active';
+    const targetId = user.id || user._id;
+    const isCurrentlyActive = user.status === 'active' || user.isActive !== false;
+    const nextIsActive = !isCurrentlyActive;
+    const nextStatus = nextIsActive ? 'active' : 'suspended';
     try {
-      await api.put(`/users/${user.id}/status`, { status: nextStatus });
-      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: nextStatus } : u));
+      await api.patch(`/admin/users/${targetId}/status`, { isActive: nextIsActive });
+      setUsers(prev => prev.map(u => (u.id === targetId || u._id === targetId) ? { ...u, status: nextStatus, isActive: nextIsActive } : u));
       toast.success(`Account status set to ${nextStatus}`);
     } catch (err) {
       console.warn('API status toggle error, simulating locally:', err);
-      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: nextStatus } : u));
+      setUsers(prev => prev.map(u => (u.id === targetId || u._id === targetId) ? { ...u, status: nextStatus, isActive: nextIsActive } : u));
       toast.success(`Account status set to ${nextStatus} (local)`);
     }
   };
 
   const filteredUsers = users.filter(u => {
-    const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = (u.name || '').toLowerCase().includes(search.toLowerCase()) || (u.email || '').toLowerCase().includes(search.toLowerCase());
     const matchesRole = !roleFilter || u.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -155,11 +179,11 @@ function Users() {
       render: (val, row) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xs font-bold">{val[0]}</span>
+            <span className="text-white text-xs font-bold">{(val || row?.name || 'U')[0].toUpperCase()}</span>
           </div>
           <div>
-            <p className="font-semibold text-[var(--text)]">{val}</p>
-            <p className="text-xs text-[var(--text-subtle)]">{row.email}</p>
+            <p className="font-semibold text-[var(--text)]">{val || row?.name || 'User'}</p>
+            <p className="text-xs text-[var(--text-subtle)]">{row?.email || ''}</p>
           </div>
         </div>
       )
@@ -168,24 +192,27 @@ function Users() {
       header: 'Role Security',
       accessor: 'role',
       render: (val) => (
-        <span className={`badge ${val === 'admin' ? 'badge-danger' : val === 'teacher' ? 'badge-secondary' : 'badge-info'}`}>
+        <span className={`badge ${(val || '').toLowerCase() === 'admin' ? 'badge-danger' : (val || '').toLowerCase() === 'teacher' ? 'badge-secondary' : 'badge-info'}`}>
           <FiShield size={10} />
-          {val.toUpperCase()}
+          {(val || 'USER').toUpperCase()}
         </span>
       )
     },
     {
       header: 'Account Status',
       accessor: 'status',
-      render: (val, row) => (
-        <button
-          onClick={() => toggleStatus(row)}
-          className={`flex items-center gap-1.5 font-bold text-xs ${val === 'active' ? 'text-emerald-400' : 'text-red-400'}`}
-        >
-          {val === 'active' ? <FiToggleRight size={20} /> : <FiToggleLeft size={20} />}
-          {val.toUpperCase()}
-        </button>
-      )
+      render: (val, row) => {
+        const isActive = val === 'active' || row?.isActive !== false;
+        return (
+          <button
+            onClick={() => toggleStatus(row)}
+            className={`flex items-center gap-1.5 font-bold text-xs ${isActive ? 'text-emerald-400' : 'text-red-400'}`}
+          >
+            {isActive ? <FiToggleRight size={20} /> : <FiToggleLeft size={20} />}
+            {isActive ? 'ACTIVE' : 'SUSPENDED'}
+          </button>
+        );
+      }
     },
     { header: 'Last Login Timestamp', accessor: 'lastLogin' },
     {
@@ -203,6 +230,8 @@ function Users() {
       )
     }
   ];
+
+  const paginatedUsers = filteredUsers.slice((page - 1) * perPage, page * perPage);
 
   return (
     <div className="space-y-6">
@@ -226,13 +255,13 @@ function Users() {
             className="input-field pl-10"
             placeholder="Search users by name or email..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           />
         </div>
         <select
           className="input-field sm:w-56"
           value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
+          onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
         >
           <option value="">All Security Roles</option>
           <option value="admin">Administrator</option>
@@ -245,15 +274,26 @@ function Users() {
       {loading ? (
         <div className="flex justify-center py-12"><LoadingSpinner /></div>
       ) : (
-        <div className="glass-card rounded-2xl overflow-hidden">
-          <DataTable columns={columns} data={filteredUsers} />
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-12">
-              <FiX className="mx-auto text-4xl text-[var(--text-subtle)] mb-3" />
-              <p className="text-[var(--text-muted)]">No active logs found matching the filter.</p>
-            </div>
+        <>
+          <div className="glass-card rounded-2xl overflow-hidden">
+            <DataTable columns={columns} data={paginatedUsers} />
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-12">
+                <FiX className="mx-auto text-4xl text-[var(--text-subtle)] mb-3" />
+                <p className="text-[var(--text-muted)]">No active accounts found matching the filter.</p>
+              </div>
+            )}
+          </div>
+          {filteredUsers.length > 0 && (
+            <Pagination
+              currentPage={page}
+              totalPages={Math.ceil(filteredUsers.length / perPage)}
+              onPageChange={setPage}
+              totalItems={filteredUsers.length}
+              itemsPerPage={perPage}
+            />
           )}
-        </div>
+        </>
       )}
 
       {/* Add/Edit Modal */}

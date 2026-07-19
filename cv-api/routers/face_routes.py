@@ -127,7 +127,7 @@ async def register_face(
         )
 
         # Refresh in-memory embeddings
-        load_all_embeddings()
+        load_all_embeddings(force=True)
 
         return {
             "success": True,
@@ -156,11 +156,16 @@ async def recognize_face_endpoint(
     """
     try:
         img = await _read_image(image)
+        h, w = img.shape[:2]
 
         # Ensure embeddings are loaded
         known = load_all_embeddings()
         if not known:
             return {
+                "image_width": w,
+                "image_height": h,
+                "face_count": 0,
+                "matched_count": 0,
                 "matches": [],
                 "message": "No registered students found. Please register faces first.",
             }
@@ -169,6 +174,8 @@ async def recognize_face_endpoint(
             img, threshold=threshold, known_embeddings=known
         )
         return {
+            "image_width": w,
+            "image_height": h,
             "face_count": len(matches),
             "matched_count": sum(1 for m in matches if m["matched"]),
             "matches": matches,
@@ -230,7 +237,7 @@ async def delete_dataset(student_id: str):
         )
 
     # Refresh in-memory cache
-    load_all_embeddings()
+    load_all_embeddings(force=True)
     return {"success": True, "message": f"Dataset for '{student_id}' deleted."}
 
 

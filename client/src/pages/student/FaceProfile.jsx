@@ -15,14 +15,13 @@ function FaceProfile() {
   const fetchProfile = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/student/face-profile');
-      setRegistered(res.data.registered);
-      setImages(res.data.images || []);
+      const res = await api.get('/face/dataset/me');
+      setRegistered(Boolean(res.data?.data?.registered));
+      setImages(res.data?.data?.images || []);
     } catch (err) {
-      console.warn('API face-profile error, using simulated local state:', err);
-      // Simulate registered user
-      setRegistered(true);
-      setImages(Array.from({ length: 6 }, (_, i) => `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80&sig=${i}`));
+      console.warn('API face-profile error:', err);
+      setRegistered(false);
+      setImages([]);
     } finally {
       setLoading(false);
     }
@@ -37,16 +36,12 @@ function FaceProfile() {
     const toastId = toast.loading('Uploading face print matrix to AI database...');
     
     try {
-      await api.post('/student/face-register', { images: capturedImages });
-      setRegistered(true);
-      setImages(capturedImages);
+      await api.post('/face/register', { images: capturedImages });
       toast.success('Biometric facial dataset updated successfully!', { id: toastId });
+      await fetchProfile();
     } catch (err) {
-      console.warn('API registration fail, simulating success locally:', err);
-      await new Promise(r => setTimeout(r, 2000));
-      setRegistered(true);
-      setImages(capturedImages.slice(0, 6)); // display a subset of photos
-      toast.success('Biometric facial dataset updated successfully (local)!', { id: toastId });
+      console.error('API face registration error:', err);
+      toast.error(err.response?.data?.message || 'Face registration failed. Please ensure clear lighting and try again.', { id: toastId });
     } finally {
       setCapturing(false);
     }
@@ -55,15 +50,13 @@ function FaceProfile() {
   const handleReset = async () => {
     const toastId = toast.loading('Purging facial dataset...');
     try {
-      await api.delete('/student/face-profile');
+      await api.delete('/face/dataset/me');
       setRegistered(false);
       setImages([]);
       toast.success('Face profile purged. You may now capture a new dataset.', { id: toastId });
     } catch (err) {
-      console.warn('API reset fail, simulating locally:', err);
-      setRegistered(false);
-      setImages([]);
-      toast.success('Face profile purged (local).', { id: toastId });
+      console.error('API reset error:', err);
+      toast.error('Failed to purge face dataset', { id: toastId });
     }
   };
 

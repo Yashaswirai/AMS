@@ -45,3 +45,8 @@ data/embeddings/
 
 .history/
 .venv/
+.agents/
+
+start-all.bat
+start-all.ps1
+start-all.sh

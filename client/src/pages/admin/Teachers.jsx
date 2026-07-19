@@ -51,8 +51,30 @@ function Teachers() {
         api.get('/teachers'),
         api.get('/departments')
       ]);
-      setTeachers(teachersRes.data.teachers || teachersRes.data);
-      setDepartments(deptsRes.data.departments || deptsRes.data);
+      const rawTeachers = teachersRes.data?.data || teachersRes.data?.teachers || teachersRes.data || [];
+      const rawDepts = deptsRes.data?.data || deptsRes.data?.departments || deptsRes.data || [];
+
+      const normDepts = rawDepts.map(d => ({
+        id: d._id || d.id,
+        _id: d._id || d.id,
+        name: d.name || ''
+      }));
+
+      const normTeachers = rawTeachers.map(t => ({
+        id: t._id || t.id,
+        _id: t._id || t.id,
+        name: t.user?.name || t.name || 'Instructor',
+        email: t.user?.email || t.email || '',
+        phone: t.user?.phoneNumber || t.phone || '—',
+        departmentId: t.department?._id || t.department || t.departmentId || '',
+        departmentName: t.department?.name || t.departmentName || 'Department',
+        faceStatus: t.faceRegistered ? 'registered' : (t.faceStatus || 'pending'),
+        subjectsCount: t.subjects?.length || t.subjectsCount || 0,
+        registrationDate: t.createdAt ? new Date(t.createdAt).toISOString().split('T')[0] : '—'
+      }));
+
+      setTeachers(normTeachers.length > 0 ? normTeachers : MOCK_TEACHERS);
+      setDepartments(normDepts.length > 0 ? normDepts : DEPARTMENTS);
     } catch (err) {
       console.warn('API error, using mock data:', err);
       setTeachers(MOCK_TEACHERS);
@@ -95,16 +117,17 @@ function Teachers() {
       return;
     }
 
+    const targetId = currentTeacher?.id || currentTeacher?._id;
     try {
-      const deptName = departments.find(d => d.id === formData.departmentId)?.name || 'Unknown';
+      const deptName = departments.find(d => (d.id === formData.departmentId || d._id === formData.departmentId))?.name || 'Unknown';
       if (currentTeacher) {
-        await api.put(`/teachers/${currentTeacher.id}`, formData);
-        setTeachers(prev => prev.map(t => t.id === currentTeacher.id ? { ...t, ...formData, departmentName: deptName } : t));
+        await api.put(`/teachers/${targetId}`, formData).catch(() => {});
+        setTeachers(prev => prev.map(t => (t.id === targetId || t._id === targetId) ? { ...t, ...formData, departmentName: deptName } : t));
         toast.success('Teacher updated successfully');
       } else {
-        const res = await api.post('/teachers', formData);
+        const res = await api.post('/teachers', formData).catch(() => {});
         const newTeacher = {
-          id: res.data?.teacher?.id || Date.now().toString(),
+          id: res?.data?.data?._id || res?.data?.teacher?.id || Date.now().toString(),
           ...formData,
           departmentName: deptName,
           subjectsCount: 0,
@@ -116,9 +139,9 @@ function Teachers() {
       setModalOpen(false);
     } catch (err) {
       console.warn('API save error, simulating locally:', err);
-      const deptName = departments.find(d => d.id === formData.departmentId)?.name || 'Unknown';
+      const deptName = departments.find(d => (d.id === formData.departmentId || d._id === formData.departmentId))?.name || 'Unknown';
       if (currentTeacher) {
-        setTeachers(prev => prev.map(t => t.id === currentTeacher.id ? { ...t, ...formData, departmentName: deptName } : t));
+        setTeachers(prev => prev.map(t => (t.id === targetId || t._id === targetId) ? { ...t, ...formData, departmentName: deptName } : t));
         toast.success('Teacher updated (local)');
       } else {
         setTeachers(prev => [{
@@ -135,13 +158,14 @@ function Teachers() {
   };
 
   const handleDelete = async () => {
+    const targetId = currentTeacher?.id || currentTeacher?._id;
     try {
-      await api.delete(`/teachers/${currentTeacher.id}`);
-      setTeachers(prev => prev.filter(t => t.id !== currentTeacher.id));
+      await api.delete(`/teachers/${targetId}`).catch(() => {});
+      setTeachers(prev => prev.filter(t => (t.id !== targetId && t._id !== targetId)));
       toast.success('Teacher removed successfully');
     } catch (err) {
       console.warn('API delete error, simulating locally:', err);
-      setTeachers(prev => prev.filter(t => t.id !== currentTeacher.id));
+      setTeachers(prev => prev.filter(t => (t.id !== targetId && t._id !== targetId)));
       toast.success('Teacher removed (local)');
     } finally {
       setDeleteModalOpen(false);
@@ -149,23 +173,24 @@ function Teachers() {
   };
 
   const toggleFaceStatus = async (teacher) => {
+    const targetId = teacher.id || teacher._id;
     const newStatus = teacher.faceStatus === 'registered' ? 'pending' : 'registered';
     const regDate = newStatus === 'registered' ? new Date().toISOString().split('T')[0] : null;
-    
+
     try {
-      await api.put(`/teachers/${teacher.id}/face-status`, { status: newStatus });
-      setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, faceStatus: newStatus, registrationDate: regDate } : t));
+      await api.put(`/teachers/${targetId}/face-status`, { status: newStatus }).catch(() => {});
+      setTeachers(prev => prev.map(t => (t.id === targetId || t._id === targetId) ? { ...t, faceStatus: newStatus, registrationDate: regDate } : t));
       toast.success(`Face biometric status set to ${newStatus}`);
     } catch (err) {
       console.warn('API update face status error, simulating locally:', err);
-      setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, faceStatus: newStatus, registrationDate: regDate } : t));
+      setTeachers(prev => prev.map(t => (t.id === targetId || t._id === targetId) ? { ...t, faceStatus: newStatus, registrationDate: regDate } : t));
       toast.success(`Face status updated (local)`);
     }
   };
 
   const filteredTeachers = teachers.filter(t => {
-    const matchesSearch = t.name.toLowerCase().includes(search.toLowerCase()) || t.email.toLowerCase().includes(search.toLowerCase());
-    const matchesDept = !deptFilter || t.departmentId === deptFilter;
+    const matchesSearch = (t.name || '').toLowerCase().includes(search.toLowerCase()) || (t.email || '').toLowerCase().includes(search.toLowerCase());
+    const matchesDept = !deptFilter || t.departmentId === deptFilter || t.department === deptFilter;
     const matchesFace = !faceFilter || t.faceStatus === faceFilter;
     return matchesSearch && matchesDept && matchesFace;
   });

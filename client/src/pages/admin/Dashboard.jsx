@@ -26,27 +26,29 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [aiInsights, setAiInsights] = useState(AI_ALERTS);
 
+  const fetchStats = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/admin/stats');
+      setStats(res.data?.data || res.data);
+    } catch {
+      // Fallback mock data
+      setStats({
+        totalStudents: 1248,
+        totalTeachers: 84,
+        todayAttendance: 87.3,
+        atRiskStudents: 23,
+        studentChange: 12,
+        teacherChange: 5,
+        attendanceChange: -2.1,
+        riskChange: -8,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await api.get('/admin/stats');
-        setStats(res.data);
-      } catch {
-        // Use mock data
-        setStats({
-          totalStudents: 1248,
-          totalTeachers: 84,
-          todayAttendance: 87.3,
-          atRiskStudents: 23,
-          studentChange: 12,
-          teacherChange: 5,
-          attendanceChange: -2.1,
-          riskChange: -8,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStats();
   }, []);
 
@@ -66,8 +68,13 @@ function AdminDashboard() {
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        <button className="btn-secondary text-sm" onClick={() => setLoading(true)}>
-          <RiRefreshLine /> Refresh
+        <button
+          className="btn-secondary text-sm flex items-center gap-1.5"
+          onClick={fetchStats}
+          disabled={loading}
+        >
+          <RiRefreshLine className={loading ? 'animate-spin' : ''} />
+          {loading ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
 

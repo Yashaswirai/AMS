@@ -101,16 +101,57 @@ def detect_faces(
 _dnn_net: Optional[cv2.dnn.Net] = None
 
 
+def _download_file(url: str, target: Path) -> bool:
+    """Download a file from *url* to *target* path."""
+    import urllib.request
+    try:
+        logger.info("Downloading %s ...", url)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(url, str(target))
+        logger.info("Successfully downloaded to %s", target)
+        return True
+    except Exception as exc:
+        logger.warning("Failed to download %s: %s", url, exc)
+        if target.exists():
+            target.unlink()
+        return False
+
+
+def _ensure_dnn_models_exist() -> bool:
+    """Ensure deploy.prototxt and caffemodel exist, downloading if missing."""
+    proto_url = (
+        "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt"
+    )
+    model_url = (
+        "https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel"
+    )
+
+    if not _DNN_PROTO.exists():
+        _download_file(proto_url, _DNN_PROTO)
+    if not _DNN_MODEL.exists():
+        _download_file(model_url, _DNN_MODEL)
+
+    return _DNN_PROTO.exists() and _DNN_MODEL.exists()
+
+
 def _load_dnn_net() -> Optional[cv2.dnn.Net]:
     """Load the SSD face-detection DNN model (lazy singleton)."""
     global _dnn_net
     if _dnn_net is not None:
         return _dnn_net
+    
+    if not (_DNN_PROTO.exists() and _DNN_MODEL.exists()):
+        _ensure_dnn_models_exist()
+
     if _DNN_PROTO.exists() and _DNN_MODEL.exists():
-        _dnn_net = cv2.dnn.readNetFromCaffe(
-            str(_DNN_PROTO), str(_DNN_MODEL)
-        )
-        logger.info("OpenCV DNN face model loaded.")
+        try:
+            _dnn_net = cv2.dnn.readNetFromCaffe(
+                str(_DNN_PROTO), str(_DNN_MODEL)
+            )
+            logger.info("OpenCV DNN face model loaded.")
+        except Exception as exc:
+            logger.error("Failed to load Caffe model: %s", exc)
+            _dnn_net = None
     else:
         logger.warning(
             "DNN model files not found at %s / %s. "

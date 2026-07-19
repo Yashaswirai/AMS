@@ -275,6 +275,82 @@ export const markByFace = asyncHandler(async (req, res) => {
 });
 
 /**
+ * POST /api/v1/attendance/submit-session
+ * Save attendance records from a real-time live recognition stream session.
+ */
+export const submitLiveSession = asyncHandler(async (req, res) => {
+  const { subjectCode, subjectId, students = [], date = new Date(), period = 1 } = req.body;
+
+  let subjectDoc = null;
+  if (subjectId) {
+    subjectDoc = await Subject.findById(subjectId);
+  } else if (subjectCode) {
+    subjectDoc = await Subject.findOne({ code: subjectCode });
+  }
+
+  if (!subjectDoc) {
+    throw ApiError.notFound('Subject not found for code / ID provided');
+  }
+
+  const formattedDate = new Date(date);
+  formattedDate.setHours(0, 0, 0, 0);
+
+  const recognizedSet = new Set(students.map((s) => s.toString()));
+  const enrolledStudents = await Student.find({ course: subjectDoc.course, isActive: true });
+
+  const savedRecords = [];
+  for (const student of enrolledStudents) {
+    const isPresent = recognizedSet.has(student._id.toString()) || recognizedSet.has(student.rollNumber);
+    const status = isPresent ? ATTENDANCE_STATUS.PRESENT : ATTENDANCE_STATUS.ABSENT;
+
+    let attendance = await Attendance.findOne({
+      student: student._id,
+      subject: subjectDoc._id,
+      date: formattedDate,
+      period,
+    });
+
+    if (attendance) {
+      attendance.status = status;
+      attendance.method = ATTENDANCE_METHOD.FACE;
+      attendance.markedBy = req.user.id;
+      await attendance.save();
+    } else {
+      attendance = await Attendance.create({
+        student: student._id,
+        subject: subjectDoc._id,
+        date: formattedDate,
+        period,
+        status,
+        method: ATTENDANCE_METHOD.FACE,
+        markedBy: req.user.id,
+      });
+    }
+
+    await updateStudentPercentage(student._id);
+    savedRecords.push(attendance);
+  }
+
+  // Emit real-time event
+  const io = req.app.get('io') || global.io;
+  if (io) {
+    io.emit('attendanceSessionSubmitted', {
+      subjectId: subjectDoc._id,
+      subjectCode: subjectDoc.code,
+      date: formattedDate,
+      period,
+      count: savedRecords.length,
+    });
+  }
+
+  return new ApiResponse(200, {
+    count: savedRecords.length,
+    presentCount: savedRecords.filter((r) => r.status === ATTENDANCE_STATUS.PRESENT).length,
+    records: savedRecords,
+  }, 'Live face recognition session attendance saved successfully').send(res);
+});
+
+/**
  * POST /api/v1/attendance/qr
  */
 export const markByQR = asyncHandler(async (req, res) => {

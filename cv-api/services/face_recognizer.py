@@ -30,6 +30,7 @@ _known_embeddings: Dict[str, np.ndarray] = {}
 
 def load_all_embeddings(
     embeddings_dir: Optional[Path] = None,
+    force: bool = False,
 ) -> Dict[str, np.ndarray]:
     """
     Scan *embeddings_dir* for ``<student_id>.npy`` files and load them
@@ -40,6 +41,9 @@ def load_all_embeddings(
     dict mapping student_id → ndarray of shape (N, 128).
     """
     global _known_embeddings
+    if _known_embeddings and not force:
+        return _known_embeddings
+
     directory = Path(embeddings_dir or settings.EMBEDDINGS_DIR)
     directory.mkdir(parents=True, exist_ok=True)
 

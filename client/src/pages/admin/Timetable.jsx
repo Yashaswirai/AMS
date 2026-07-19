@@ -59,11 +59,33 @@ function Timetable() {
     setLoading(true);
     try {
       const [tableRes, coursesRes] = await Promise.all([
-        api.get(`/timetable?courseId=${courseFilter}&semester=${semesterFilter}`),
-        api.get('/courses')
+        api.get(`/timetable?courseId=${courseFilter}&semester=${semesterFilter}`).catch(() => null),
+        api.get('/courses').catch(() => null)
       ]);
-      setTimetable(tableRes.data.timetable || tableRes.data);
-      setCourses(coursesRes.data.courses || coursesRes.data);
+      const rawTable = tableRes?.data?.data || tableRes?.data?.timetable || tableRes?.data || [];
+      const rawCourses = coursesRes?.data?.data || coursesRes?.data?.courses || coursesRes?.data || [];
+
+      const normCourses = rawCourses.map(c => ({
+        id: c._id || c.id,
+        _id: c._id || c.id,
+        name: c.name || ''
+      }));
+
+      const normTable = rawTable.map(t => ({
+        id: t._id || t.id,
+        _id: t._id || t.id,
+        courseId: t.course?._id || t.course || t.courseId || courseFilter,
+        semester: t.semester || semesterFilter,
+        day: typeof t.day === 'number' ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][t.day] : (t.day || 'Monday'),
+        timeSlot: t.startTime && t.endTime ? `${t.startTime} - ${t.endTime}` : (t.timeSlot || '09:00 - 10:00'),
+        subjectCode: t.subject?.code || t.subjectCode || 'SUB',
+        subjectName: t.subject?.name || t.subjectName || 'Subject',
+        teacherName: t.teacher?.user?.name || t.teacher?.name || t.teacherName || 'Faculty',
+        room: t.room || 'LHC-101'
+      }));
+
+      setTimetable(normTable.length > 0 ? normTable : MOCK_TIMETABLE);
+      if (normCourses.length > 0) setCourses(normCourses);
     } catch (err) {
       console.warn('API error, using mock data:', err);
       setTimetable(MOCK_TIMETABLE);

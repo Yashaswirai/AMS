@@ -34,8 +34,19 @@ function Departments() {
     const fetchDepts = async () => {
       setLoading(true);
       try {
-        const res = await api.get('/admin/departments');
-        setDepartments(res.data.departments || MOCK);
+        const res = await api.get('/departments');
+        const raw = res.data?.data || res.data?.departments || res.data || [];
+        const norm = raw.map(d => ({
+          id: d._id || d.id,
+          _id: d._id || d.id,
+          name: d.name || '',
+          code: d.code || '',
+          hodName: d.head?.user?.name || d.head?.name || d.hodName || 'Not Assigned',
+          studentCount: d.totalStudents ?? d.studentCount ?? 0,
+          courseCount: d.totalCourses ?? d.courseCount ?? 0,
+          status: d.isActive !== false ? 'active' : 'inactive'
+        }));
+        setDepartments(norm.length > 0 ? norm : MOCK);
       } catch { setDepartments(MOCK); }
       finally { setLoading(false); }
     };
@@ -43,24 +54,24 @@ function Departments() {
   }, []);
 
   const filtered = departments.filter(d =>
-    d.name.toLowerCase().includes(search.toLowerCase()) ||
-    d.code.toLowerCase().includes(search.toLowerCase())
+    (d.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (d.code || '').toLowerCase().includes(search.toLowerCase())
   );
   const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
   const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setModalOpen(true); };
-  const openEdit = (dept) => { setForm({ name: dept.name, code: dept.code, hodName: dept.hodName, status: dept.status }); setEditId(dept.id); setModalOpen(true); };
+  const openEdit = (dept) => { setForm({ name: dept.name, code: dept.code, hodName: dept.hodName, status: dept.status }); setEditId(dept.id || dept._id); setModalOpen(true); };
 
   const handleSave = async () => {
     if (!form.name || !form.code) { toast.error('Name and Code are required'); return; }
     try {
       if (editId) {
-        await api.put(`/admin/departments/${editId}`, form).catch(() => {});
-        setDepartments(d => d.map(dep => dep.id === editId ? { ...dep, ...form } : dep));
+        await api.put(`/departments/${editId}`, form).catch(() => {});
+        setDepartments(d => d.map(dep => (dep.id === editId || dep._id === editId) ? { ...dep, ...form } : dep));
         toast.success('Department updated');
       } else {
         const newDept = { id: Date.now(), ...form, studentCount: 0, courseCount: 0 };
-        await api.post('/admin/departments', form).catch(() => {});
+        await api.post('/departments', form).catch(() => {});
         setDepartments(d => [newDept, ...d]);
         toast.success('Department created');
       }
@@ -69,9 +80,10 @@ function Departments() {
   };
 
   const handleDelete = async () => {
+    const targetId = deleteModal?.id || deleteModal?._id;
     try {
-      await api.delete(`/admin/departments/${deleteModal.id}`).catch(() => {});
-      setDepartments(d => d.filter(dep => dep.id !== deleteModal.id));
+      await api.delete(`/departments/${targetId}`).catch(() => {});
+      setDepartments(d => d.filter(dep => (dep.id !== targetId && dep._id !== targetId)));
       toast.success('Department deleted');
       setDeleteModal(null);
     } catch { toast.error('Failed to delete'); }

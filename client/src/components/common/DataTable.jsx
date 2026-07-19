@@ -58,23 +58,27 @@ function DataTable({
         <table className="data-table">
           <thead>
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  onClick={() => col.sortable && handleSort(col.key)}
-                  style={{ cursor: col.sortable ? 'pointer' : 'default' }}
-                >
-                  <div className="flex items-center gap-1">
-                    {col.label}
-                    {col.sortable && (
-                      <span className="flex flex-col" style={{ color: 'var(--text-subtle)' }}>
-                        <FiChevronUp size={10} style={{ opacity: sortField === col.key && sortDir === 'asc' ? 1 : 0.3 }} />
-                        <FiChevronDown size={10} style={{ opacity: sortField === col.key && sortDir === 'desc' ? 1 : 0.3 }} />
-                      </span>
-                    )}
-                  </div>
-                </th>
-              ))}
+              {columns.map((col, idx) => {
+                const key = col.key || col.accessor || idx;
+                const label = col.label || col.header || '';
+                return (
+                  <th
+                    key={key}
+                    onClick={() => col.sortable && handleSort(key)}
+                    style={{ cursor: col.sortable ? 'pointer' : 'default' }}
+                  >
+                    <div className="flex items-center gap-1">
+                      {label}
+                      {col.sortable && (
+                        <span className="flex flex-col" style={{ color: 'var(--text-subtle)' }}>
+                          <FiChevronUp size={10} style={{ opacity: sortField === key && sortDir === 'asc' ? 1 : 0.3 }} />
+                          <FiChevronDown size={10} style={{ opacity: sortField === key && sortDir === 'desc' ? 1 : 0.3 }} />
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
               {actions && <th>Actions</th>}
             </tr>
           </thead>
@@ -82,8 +86,8 @@ function DataTable({
             <AnimatePresence>
               {loading ? skeletonRows.map((_, i) => (
                 <tr key={i}>
-                  {columns.map((col) => (
-                    <td key={col.key}><div className="skeleton h-4 rounded" style={{ width: `${Math.random() * 40 + 60}%` }} /></td>
+                  {columns.map((col, cIdx) => (
+                    <td key={col.key || col.accessor || cIdx}><div className="skeleton h-4 rounded" style={{ width: `${Math.random() * 40 + 60}%` }} /></td>
                   ))}
                   {actions && <td><div className="skeleton h-4 w-16 rounded" /></td>}
                 </tr>
@@ -95,17 +99,21 @@ function DataTable({
                 </tr>
               ) : displayData.map((row, i) => (
                 <motion.tr
-                  key={row[rowKey] || i}
+                  key={row[rowKey] || row.id || row._id || i}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ delay: i * 0.03 }}
                 >
-                  {columns.map((col) => (
-                    <td key={col.key}>
-                      {col.render ? col.render(row[col.key], row) : row[col.key] ?? '—'}
-                    </td>
-                  ))}
+                  {columns.map((col, cIdx) => {
+                    const fieldKey = col.key || col.accessor;
+                    const val = fieldKey ? row[fieldKey] : undefined;
+                    return (
+                      <td key={fieldKey || cIdx}>
+                        {col.render ? col.render(val, row) : (val ?? '—')}
+                      </td>
+                    );
+                  })}
                   {actions && <td>{actions(row)}</td>}
                 </motion.tr>
               ))}
