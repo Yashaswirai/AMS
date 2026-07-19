@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Attendance from '../models/Attendance.js';
 import Student from '../models/Student.js';
 import Subject from '../models/Subject.js';
@@ -19,7 +20,7 @@ const CV_API_URL = process.env.CV_API_URL || 'http://localhost:8000';
 const updateStudentPercentage = async (studentId) => {
   const stats = await computeStudentStats(studentId);
   await Student.findByIdAndUpdate(studentId, {
-    attendancePercentage: stats.overall.percentage,
+    overallAttendance: stats.overallPercentage || 0,
   });
 };
 
@@ -153,10 +154,13 @@ export const getClassRoster = asyncHandler(async (req, res) => {
 
   let subjectDoc = null;
   if (subjectCode) {
-    subjectDoc = await Subject.findOne({ code: subjectCode });
-    if (!subjectDoc) {
-      subjectDoc = await Subject.findById(subjectCode).catch(() => null);
-    }
+    subjectDoc = await Subject.findOne({
+      $or: [
+        { code: subjectCode.toUpperCase() },
+        { code: subjectCode },
+        { _id: mongoose.Types.ObjectId.isValid(subjectCode) ? subjectCode : null }
+      ].filter(Boolean)
+    });
   }
 
   let studentQuery = { isActive: true };
@@ -183,17 +187,20 @@ export const getClassRoster = asyncHandler(async (req, res) => {
       subject: subjectDoc._id,
       date: { $gte: startOfDay, $lt: endOfDay },
     };
-    if (period) query.period = parseInt(period);
 
     const existingRecords = await Attendance.find(query).sort('-updatedAt -createdAt').lean();
     existingRecords.forEach((r) => {
-      if (!existingMap.has(r.student.toString())) {
-        existingMap.set(r.student.toString(), r.status);
+      const key = r.student.toString();
+      if (period && r.period === parseInt(period)) {
+        existingMap.set(key, r.status);
+      } else if (!existingMap.has(key)) {
+        existingMap.set(key, r.status);
       }
     });
   }
 
   const roster = enrolledStudents.map((s) => ({
+    id: s._id.toString(),
     studentId: s._id.toString(),
     name: s.user?.name || `Student ${s.rollNumber}`,
     rollNumber: s.rollNumber,

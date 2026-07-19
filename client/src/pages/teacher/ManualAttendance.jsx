@@ -29,12 +29,16 @@ function ManualAttendance() {
     try {
       const res = await api.get(`/attendance/roster?subjectCode=${subjectCode}&date=${date}&period=${period}`);
       const raw = res.data?.data || res.data?.roster || res.data || [];
-      const formatted = Array.isArray(raw) ? raw.map(s => ({
-        studentId: s.studentId || s._id || s.id,
-        name: s.name || s.user?.name || 'Student',
-        rollNumber: s.rollNumber || 'CS000',
-        status: s.status || 'present'
-      })) : [];
+      const formatted = Array.isArray(raw) ? raw.map(s => {
+        const sid = String(s.studentId || s._id || s.id);
+        return {
+          id: sid,
+          studentId: sid,
+          name: s.name || s.user?.name || 'Student',
+          rollNumber: s.rollNumber || 'CS000',
+          status: s.status || 'present'
+        };
+      }) : [];
       setRoster(formatted);
     } catch (err) {
       console.warn('API roster error:', err);
@@ -49,7 +53,8 @@ function ManualAttendance() {
   }, [subjectCode, date, period]);
 
   const updateStatus = (studentId, status) => {
-    setRoster(prev => prev.map(s => s.studentId === studentId ? { ...s, status } : s));
+    const targetId = String(studentId);
+    setRoster(prev => prev.map(s => String(s.studentId) === targetId || String(s.id) === targetId ? { ...s, status } : s));
   };
 
   const handleMarkAll = (status) => {
@@ -86,36 +91,51 @@ function ManualAttendance() {
       header: 'Mark Attendance Status',
       accessor: 'status',
       render: (val, row) => (
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => updateStatus(row.studentId, 'present')}
-            className={`btn-secondary text-xs font-semibold py-1 px-3 rounded-lg flex items-center gap-1 border ${
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              updateStatus(row.studentId || row.id, 'present');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
               val === 'present'
-                ? 'bg-[rgba(16,185,129,0.15)] border-emerald-400 text-emerald-400'
-                : 'hover:bg-emerald-50 hover:text-emerald-500'
+                ? 'bg-emerald-500 text-white border-emerald-600 shadow-md scale-105'
+                : 'bg-[var(--surface-elevated)] text-[var(--text-muted)] border-[var(--border)] hover:bg-emerald-500/10 hover:text-emerald-400'
             }`}
           >
-            <FiCheck size={12} /> Present
+            <FiCheck size={14} /> Present
           </button>
           <button
-            onClick={() => updateStatus(row.studentId, 'absent')}
-            className={`btn-secondary text-xs font-semibold py-1 px-3 rounded-lg flex items-center gap-1 border ${
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              updateStatus(row.studentId || row.id, 'absent');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
               val === 'absent'
-                ? 'bg-[rgba(239,68,68,0.15)] border-red-400 text-red-400'
-                : 'hover:bg-red-50 hover:text-red-500'
+                ? 'bg-red-500 text-white border-red-600 shadow-md scale-105'
+                : 'bg-[var(--surface-elevated)] text-[var(--text-muted)] border-[var(--border)] hover:bg-red-500/10 hover:text-red-400'
             }`}
           >
-            <FiX size={12} /> Absent
+            <FiX size={14} /> Absent
           </button>
           <button
-            onClick={() => updateStatus(row.studentId, 'late')}
-            className={`btn-secondary text-xs font-semibold py-1 px-3 rounded-lg flex items-center gap-1 border ${
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              updateStatus(row.studentId || row.id, 'late');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
               val === 'late'
-                ? 'bg-[rgba(245,158,11,0.15)] border-amber-400 text-amber-400'
-                : 'hover:bg-amber-50 hover:text-amber-500'
+                ? 'bg-amber-500 text-white border-amber-600 shadow-md scale-105'
+                : 'bg-[var(--surface-elevated)] text-[var(--text-muted)] border-[var(--border)] hover:bg-amber-500/10 hover:text-amber-400'
             }`}
           >
-            <FiClock size={12} /> Late
+            <FiClock size={14} /> Late
           </button>
         </div>
       )
