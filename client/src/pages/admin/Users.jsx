@@ -33,8 +33,21 @@ function Users() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/admin/users?limit=500');
-      const rawUsers = res.data?.data || res.data?.users || res.data || [];
+      const firstResponse = await api.get('/admin/users?page=1&limit=100');
+      const firstPageUsers = firstResponse.data?.data || firstResponse.data?.users || firstResponse.data || [];
+      const totalPages = firstResponse.data?.meta?.pagination?.totalPages || 1;
+      const remainingPages = await Promise.all(
+        Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) =>
+          api.get(`/admin/users?page=${index + 2}&limit=100`)
+        )
+      );
+      const rawUsers = [
+        ...(Array.isArray(firstPageUsers) ? firstPageUsers : []),
+        ...remainingPages.flatMap((response) => {
+          const pageUsers = response.data?.data || response.data?.users || response.data || [];
+          return Array.isArray(pageUsers) ? pageUsers : [];
+        }),
+      ];
       const normalizedUsers = rawUsers.map(u => ({
         id: u._id || u.id,
         _id: u._id || u.id,

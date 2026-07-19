@@ -26,8 +26,12 @@ function ResetPassword() {
       toast.error('Please fill in all fields');
       return;
     }
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+    if (password.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/.test(password)) {
+      toast.error('Password must include uppercase, lowercase, number, and special character');
       return;
     }
     if (password !== confirmPassword) {
@@ -57,7 +61,7 @@ function ResetPassword() {
         <>
           <div className="mb-8">
             <h2 className="text-3xl font-black mb-2" style={{ color: 'var(--text)' }}>Create New Password</h2>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Your new password must be at least 6 characters.</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Use at least 8 characters, including uppercase, lowercase, a number, and a special character.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -68,7 +72,7 @@ function ResetPassword() {
                 <input
                   type={showPw ? 'text' : 'password'}
                   className="input-field pl-10 pr-10"
-                  placeholder="Min. 6 characters"
+                  placeholder="Min. 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />

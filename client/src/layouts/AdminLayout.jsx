@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import RouteContentBoundary from '../components/common/RouteErrorBoundary.jsx';
 import {
   RiCameraLensFill, RiDashboardLine, RiBuilding2Line, RiBookOpenLine,
   RiBookmarkLine, RiTeamLine, RiGroupLine, RiCalendarLine, RiDatabase2Line,
@@ -253,7 +254,7 @@ function AdminLayout() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <Outlet />
+            <RouteContentBoundary><Outlet /></RouteContentBoundary>
           </motion.div>
         </main>
       </div>

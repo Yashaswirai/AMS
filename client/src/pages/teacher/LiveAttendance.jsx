@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiPlay, FiSquare, FiUsers, FiCheckCircle, FiInfo, FiUploadCloud } from 'react-icons/fi';
 import FaceRecognitionStream from '../../components/face/FaceRecognitionStream.jsx';

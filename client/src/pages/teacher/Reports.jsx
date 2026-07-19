@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiDownload, FiSearch, FiCalendar, FiBookOpen } from 'react-icons/fi';
 import api from '../../services/api.js';
@@ -17,27 +17,40 @@ function Reports() {
     api.get('/subjects').then(res => {
       const raw = res.data?.data || res.data?.subjects || res.data || [];
       setSubjectsList(raw);
-      if (raw.length > 0) setSubject(raw[0].code || raw[0]._id);
+      if (raw.length > 0) {
+        const firstSub = raw[0].code || raw[0]._id;
+        setSubject(firstSub);
+        fetchReportData(firstSub, startDate, endDate);
+      }
     }).catch(() => {});
   }, []);
 
-  const handleGenerate = async (e) => {
-    e.preventDefault();
+  const fetchReportData = async (subCode, start, end) => {
     setLoading(true);
-    const toastId = toast.loading('Calculating student attendance logs...');
-    
     try {
-      const res = await api.get(`/reports/generate?type=teacher&subject=${subject}&startDate=${startDate}&endDate=${endDate}`);
+      const res = await api.get(`/reports/generate?type=teacher&subject=${subCode}&startDate=${start}&endDate=${end}`);
       const raw = res.data?.data || res.data?.records || res.data || [];
-      setReportData(Array.isArray(raw) ? raw : []);
-      toast.success('Roster compiled successfully', { id: toastId });
+      const formatted = Array.isArray(raw) ? raw.map(r => ({
+        rollNumber: r.student?.rollNumber || r.rollNumber || 'CS000',
+        name: r.student?.user?.name || r.student?.name || r.name || 'Student',
+        present: r.presentClasses || r.present || 0,
+        total: r.totalClasses || r.total || 0,
+        percentage: r.percentage || 0
+      })) : [];
+      setReportData(formatted);
     } catch (err) {
-      console.warn('API teacher report failed:', err);
+      console.warn('API teacher report error:', err);
       setReportData([]);
-      toast.error('No matching records found in database', { id: toastId });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGenerate = async (e) => {
+    e.preventDefault();
+    const toastId = toast.loading('Calculating student attendance logs...');
+    await fetchReportData(subject, startDate, endDate);
+    toast.success('Roster compiled successfully', { id: toastId });
   };
 
   const handleDownload = () => {

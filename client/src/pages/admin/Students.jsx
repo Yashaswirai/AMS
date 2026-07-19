@@ -7,8 +7,6 @@ import Modal from '../../components/common/Modal.jsx';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 import DataTable from '../../components/common/DataTable.jsx';
 
-import DataTable from '../../components/common/DataTable.jsx';
-
 function Students() {
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);

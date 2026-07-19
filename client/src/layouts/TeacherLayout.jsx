@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import RouteContentBoundary from '../components/common/RouteErrorBoundary.jsx';
 import {
   RiCameraLensFill, RiDashboardLine, RiLiveLine, RiFileListLine,
   RiQrCodeLine, RiHistoryLine, RiFileChartLine, RiUserSearchLine,
@@ -141,7 +142,7 @@ function TeacherLayout() {
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <motion.div key="teacher-page" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-            <Outlet />
+            <RouteContentBoundary><Outlet /></RouteContentBoundary>
           </motion.div>
         </main>
       </div>
