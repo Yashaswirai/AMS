@@ -15,7 +15,8 @@ const validate = (req, res, next) => {
       value: err.value,
     }));
 
-    return next(ApiError.badRequest('Validation failed', errorMessages));
+    const mainMessage = errorMessages[0]?.message || 'Validation failed';
+    return next(ApiError.badRequest(mainMessage, errorMessages));
   }
 
   next();

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext.jsx';
-import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi';
+import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight, FiAlertCircle } from 'react-icons/fi';
 import { RiCameraLensFill, RiShieldLine, RiTeamLine, RiGroupLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -21,14 +21,53 @@ function Login() {
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
+  const validateEmail = (val) => {
+    if (!val.trim()) return 'Email address is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return 'Please enter a valid email address';
+    return '';
+  };
+
+  const validatePassword = (val) => {
+    if (!val) return 'Password is required';
+    return '';
+  };
+
+  const handleEmailChange = (val) => {
+    setEmail(val);
+    setErrors(prev => ({ ...prev, email: validateEmail(val) }));
+  };
+
+  const handlePasswordChange = (val) => {
+    setPassword(val);
+    setErrors(prev => ({ ...prev, password: validatePassword(val) }));
+  };
+
+  const handleBlur = (field) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    if (field === 'email') setErrors(prev => ({ ...prev, email: validateEmail(email) }));
+    if (field === 'password') setErrors(prev => ({ ...prev, password: validatePassword(password) }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) { toast.error('Please fill in all fields'); return; }
+    const emailErr = validateEmail(email);
+    const pwErr = validatePassword(password);
+    setTouched({ email: true, password: true });
+    setErrors({ email: emailErr, password: pwErr });
+
+    if (emailErr || pwErr) {
+      toast.error(emailErr || pwErr);
+      return;
+    }
+
     setLoading(true);
     try {
       await login({ email, password, role });
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Invalid credentials');
+      toast.error(err?.response?.data?.message || 'Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -86,10 +125,17 @@ function Login() {
               className="input-field pl-10"
               placeholder="you@university.edu"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => handleEmailChange(e.target.value)}
+              onBlur={() => handleBlur('email')}
               autoComplete="email"
+              style={{ borderColor: errors.email && touched.email ? '#ef4444' : undefined }}
             />
           </div>
+          {errors.email && touched.email && (
+            <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1 font-medium">
+              <FiAlertCircle size={12} /> {errors.email}
+            </p>
+          )}
         </div>
 
         {/* Password */}
@@ -105,8 +151,10 @@ function Login() {
               className="input-field pl-10 pr-10"
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => handlePasswordChange(e.target.value)}
+              onBlur={() => handleBlur('password')}
               autoComplete="current-password"
+              style={{ borderColor: errors.password && touched.password ? '#ef4444' : undefined }}
             />
             <button
               type="button"
@@ -117,6 +165,11 @@ function Login() {
               {showPw ? <FiEyeOff size={16} /> : <FiEye size={16} />}
             </button>
           </div>
+          {errors.password && touched.password && (
+            <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1 font-medium">
+              <FiAlertCircle size={12} /> {errors.password}
+            </p>
+          )}
         </div>
 
         {/* Remember me */}

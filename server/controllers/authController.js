@@ -33,41 +33,58 @@ export const register = asyncHandler(async (req, res) => {
 
   // Create role-specific profile
   try {
-    if (role === ROLES.STUDENT) {
-      if (!rollNumber) throw ApiError.badRequest('Roll number is required for student registration');
+    if (role === ROLES.STUDENT || role === ROLES.TEACHER) {
+      const mongoose = (await import('mongoose')).default;
+      const deptInput = departmentId ?? req.body.department;
+      if (!deptInput) {
+        throw ApiError.badRequest('Department is required');
+      }
 
-      const existingRoll = await Student.findOne({ rollNumber: rollNumber.toUpperCase() });
-      if (existingRoll) throw ApiError.conflict(`Roll number '${rollNumber}' already exists`);
+      let deptDoc = null;
+      if (mongoose.Types.ObjectId.isValid(deptInput)) {
+        deptDoc = await Department.findById(deptInput);
+      }
+      if (!deptDoc) {
+        deptDoc = await Department.findOne({ code: deptInput.toString().toUpperCase(), isActive: true });
+      }
+      if (!deptDoc || !deptDoc.isActive) {
+        throw ApiError.badRequest('Invalid or inactive department');
+      }
 
-      const dept = await Department.findById(departmentId);
-      if (!dept) throw ApiError.badRequest('Invalid department ID');
+      if (role === ROLES.STUDENT) {
+        let courseDoc = null;
+        if (courseId) {
+          if (!mongoose.Types.ObjectId.isValid(courseId)) {
+            throw ApiError.badRequest('Invalid course ID');
+          }
+          courseDoc = await Course.findById(courseId);
+          if (!courseDoc || !courseDoc.isActive || !courseDoc.department.equals(deptDoc._id)) {
+            throw ApiError.badRequest('Course must be active and belong to the selected department');
+          }
+        } else {
+          courseDoc = await Course.findOne({ department: deptDoc._id, isActive: true });
+          if (!courseDoc) {
+            throw ApiError.badRequest('No active course is available for the selected department');
+          }
+        }
 
-      const course = await Course.findById(courseId);
-      if (!course) throw ApiError.badRequest('Invalid course ID');
-
-      await Student.create({
-        user: user._id,
-        rollNumber: rollNumber.toUpperCase(),
-        department: departmentId,
-        course: courseId,
-        year: year || 1,
-        semester: semester || 1,
-      });
-
-    } else if (role === ROLES.TEACHER) {
-      if (!employeeId) throw ApiError.badRequest('Employee ID is required for teacher registration');
-
-      const existingEmpId = await Teacher.findOne({ employeeId: employeeId.toUpperCase() });
-      if (existingEmpId) throw ApiError.conflict(`Employee ID '${employeeId}' already exists`);
-
-      const dept = await Department.findById(departmentId);
-      if (!dept) throw ApiError.badRequest('Invalid department ID');
-
-      await Teacher.create({
-        user: user._id,
-        employeeId: employeeId.toUpperCase(),
-        department: departmentId,
-      });
+        const finalRollNumber = rollNumber || `STU-${crypto.randomUUID()}`;
+        await Student.create({
+          user: user._id,
+          rollNumber: finalRollNumber.toUpperCase(),
+          department: deptDoc._id,
+          course: courseDoc._id,
+          year: year || 1,
+          semester: semester || 1,
+        });
+      } else {
+        const finalEmpId = employeeId || `EMP-${crypto.randomUUID()}`;
+        await Teacher.create({
+          user: user._id,
+          employeeId: finalEmpId.toUpperCase(),
+          department: deptDoc._id,
+        });
+      }
     }
   } catch (err) {
     // Rollback user creation if profile creation fails
