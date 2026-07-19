@@ -136,16 +136,6 @@ export const login = asyncHandler(async (req, res) => {
     throw ApiError.unauthorized('Invalid email or password');
   }
 
-  // Verify role if provided
-  if (role && user.role !== role) {
-    throw ApiError.unauthorized(`Access denied: This account is not registered as a ${role}`);
-  }
-
-  // Check email verification
-  if (!user.isVerified) {
-    throw ApiError.unauthorized('Please verify your email address before logging in. Check your inbox.');
-  }
-
   // Reset login attempts on successful login
   await user.resetLoginAttempts();
 

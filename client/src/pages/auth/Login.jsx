@@ -38,6 +38,10 @@ function Login() {
   const handleEmailChange = (val) => {
     setEmail(val);
     setErrors(prev => ({ ...prev, email: validateEmail(val) }));
+    const lower = val.toLowerCase();
+    if (lower.includes('admin')) setRole('admin');
+    else if (lower.includes('teacher')) setRole('teacher');
+    else if (lower.includes('student')) setRole('student');
   };
 
   const handlePasswordChange = (val) => {
