@@ -14,8 +14,22 @@ export const getAllSubjects = asyncHandler(async (req, res) => {
 
   const filter = { isActive: true };
   if (course) filter.course = course;
-  if (teacher) filter.teacher = teacher;
   if (semester) filter.semester = parseInt(semester);
+
+  if (req.user.role === 'teacher') {
+    const teacherDoc = await Teacher.findOne({ user: req.user.id });
+    if (teacherDoc) filter.teacher = teacherDoc._id;
+  } else if (teacher) {
+    filter.teacher = teacher;
+  }
+
+  if (req.user.role === 'student') {
+    const studentDoc = await import('../models/Student.js').then(m => m.default).catch(() => null);
+    if (studentDoc) {
+      const student = await studentDoc.findOne({ user: req.user.id });
+      if (student && student.course) filter.course = student.course;
+    }
+  }
 
   if (search) {
     Object.assign(filter, buildSearchFilter(search, ['name', 'code']));

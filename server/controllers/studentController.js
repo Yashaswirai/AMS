@@ -23,6 +23,30 @@ export const getAllStudents = asyncHandler(async (req, res) => {
   if (semester) filter.semester = parseInt(semester);
   if (faceRegistered !== undefined) filter.faceRegistered = faceRegistered === 'true';
 
+  if (req.user && req.user.role === 'teacher') {
+    const teacherDoc = await import('../models/Teacher.js').then(m => m.default).catch(() => null);
+    const subjectDoc = await import('../models/Subject.js').then(m => m.default).catch(() => null);
+    if (teacherDoc && subjectDoc) {
+      const teacher = await teacherDoc.findOne({ user: req.user.id });
+      if (teacher) {
+        const subjects = await subjectDoc.find({ teacher: teacher._id }).select('course').lean();
+        const courseIds = subjects.map(s => s.course).filter(Boolean);
+        if (courseIds.length > 0) {
+          if (filter.course) {
+            // if client requested a specific course, ensure it's in the teacher's allowed courses
+            if (!courseIds.map(c => c.toString()).includes(filter.course.toString())) {
+              filter.course = null; // Deny access
+            }
+          } else {
+            filter.course = { $in: courseIds };
+          }
+        } else {
+          filter._id = null; // No subjects assigned, return empty students
+        }
+      }
+    }
+  }
+
   let studentQuery = Student.find(filter)
     .populate('user', 'name email avatar phoneNumber')
     .populate('department', 'name code')

@@ -299,36 +299,67 @@ export const submitLiveSession = asyncHandler(async (req, res) => {
   const enrolledStudents = await Student.find({ course: subjectDoc.course, isActive: true });
 
   const savedRecords = [];
-  for (const student of enrolledStudents) {
-    const isPresent = recognizedSet.has(student._id.toString()) || recognizedSet.has(student.rollNumber);
-    const status = isPresent ? ATTENDANCE_STATUS.PRESENT : ATTENDANCE_STATUS.ABSENT;
+  if (enrolledStudents.length > 0) {
+    for (const student of enrolledStudents) {
+      const isPresent = recognizedSet.has(student._id.toString()) || recognizedSet.has(student.rollNumber);
+      const status = isPresent ? ATTENDANCE_STATUS.PRESENT : ATTENDANCE_STATUS.ABSENT;
 
-    let attendance = await Attendance.findOne({
-      student: student._id,
-      subject: subjectDoc._id,
-      date: formattedDate,
-      period,
-    });
-
-    if (attendance) {
-      attendance.status = status;
-      attendance.method = ATTENDANCE_METHOD.FACE;
-      attendance.markedBy = req.user.id;
-      await attendance.save();
-    } else {
-      attendance = await Attendance.create({
+      let attendance = await Attendance.findOne({
         student: student._id,
         subject: subjectDoc._id,
         date: formattedDate,
         period,
-        status,
-        method: ATTENDANCE_METHOD.FACE,
-        markedBy: req.user.id,
       });
-    }
 
-    await updateStudentPercentage(student._id);
-    savedRecords.push(attendance);
+      if (attendance) {
+        attendance.status = status;
+        attendance.method = ATTENDANCE_METHOD.FACE;
+        attendance.markedBy = req.user.id;
+        await attendance.save();
+      } else {
+        attendance = await Attendance.create({
+          student: student._id,
+          subject: subjectDoc._id,
+          date: formattedDate,
+          period,
+          status,
+          method: ATTENDANCE_METHOD.FACE,
+          markedBy: req.user.id,
+        });
+      }
+
+      await updateStudentPercentage(student._id);
+      savedRecords.push(attendance);
+    }
+  } else {
+    // Save recognized students directly if no course association filter exists
+    for (const studentId of students) {
+      let attendance = await Attendance.findOne({
+        student: studentId,
+        subject: subjectDoc._id,
+        date: formattedDate,
+        period,
+      });
+
+      if (attendance) {
+        attendance.status = ATTENDANCE_STATUS.PRESENT;
+        attendance.method = ATTENDANCE_METHOD.FACE;
+        attendance.markedBy = req.user.id;
+        await attendance.save();
+      } else {
+        attendance = await Attendance.create({
+          student: studentId,
+          subject: subjectDoc._id,
+          date: formattedDate,
+          period,
+          status: ATTENDANCE_STATUS.PRESENT,
+          method: ATTENDANCE_METHOD.FACE,
+          markedBy: req.user.id,
+        });
+      }
+      await updateStudentPercentage(studentId);
+      savedRecords.push(attendance);
+    }
   }
 
   // Emit real-time event
