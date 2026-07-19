@@ -27,7 +27,7 @@ function ManualAttendance() {
     if (!subjectCode) return;
     setLoading(true);
     try {
-      const res = await api.get(`/attendance/roster?subjectCode=${subjectCode}&date=${date}`);
+      const res = await api.get(`/attendance/roster?subjectCode=${subjectCode}&date=${date}&period=${period}`);
       const raw = res.data?.data || res.data?.roster || res.data || [];
       const formatted = Array.isArray(raw) ? raw.map(s => ({
         studentId: s.studentId || s._id || s.id,
@@ -46,7 +46,7 @@ function ManualAttendance() {
 
   useEffect(() => {
     fetchRoster();
-  }, [subjectCode]);
+  }, [subjectCode, date, period]);
 
   const updateStatus = (studentId, status) => {
     setRoster(prev => prev.map(s => s.studentId === studentId ? { ...s, status } : s));

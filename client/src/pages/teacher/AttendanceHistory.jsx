@@ -31,7 +31,7 @@ function AttendanceHistory() {
     setLoading(true);
     try {
       const res = await api.get(`/attendance/history?subjectId=${subjectFilter}&date=${dateFilter}`);
-      const raw = res.data?.data || res.data?.records || res.data?.history || res.data || [];
+      const raw = res.data?.data?.records || (Array.isArray(res.data?.data) ? res.data.data : res.data?.records || res.data?.history || []);
       const formatted = Array.isArray(raw) ? raw.map(h => ({
         id: h._id || h.id,
         date: h.date ? new Date(h.date).toLocaleDateString() : 'N/A',

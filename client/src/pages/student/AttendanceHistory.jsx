@@ -15,15 +15,15 @@ function StudentAttendanceHistory() {
     setLoading(true);
     try {
       const res = await api.get('/attendance/history?studentId=me');
-      const raw = res.data?.data || res.data?.records || res.data?.logs || res.data || [];
-      const formatted = raw.map(item => ({
+      const raw = res.data?.data?.records || (Array.isArray(res.data?.data) ? res.data.data : res.data?.records || res.data?.logs || []);
+      const formatted = Array.isArray(raw) ? raw.map(item => ({
         id: item._id || item.id,
         date: item.date ? new Date(item.date).toLocaleDateString() : 'N/A',
         subject: item.subject?.name ? `${item.subject.code || ''} ${item.subject.name}` : 'Subject',
         time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—',
         status: item.status || 'absent',
         method: item.method ? item.method.toUpperCase() : 'Manual'
-      }));
+      })) : [];
       setLogs(formatted);
     } catch (err) {
       console.warn('API error fetching student attendance history:', err);

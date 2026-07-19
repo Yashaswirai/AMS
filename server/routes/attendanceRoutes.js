@@ -9,7 +9,8 @@ import {
   getStats,
   requestCorrection,
   approveCorrection,
-  submitLiveSession
+  submitLiveSession,
+  getClassRoster
 } from '../controllers/attendanceController.js';
 import {
   markManualValidator,
@@ -27,7 +28,8 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-router.post('/manual', authorize('admin', 'teacher'), markManualValidator, validate, markManual);
+router.get('/roster', authorize('admin', 'teacher'), getClassRoster);
+router.post('/manual', authorize('admin', 'teacher'), markManual);
 router.post('/bulk', authorize('admin', 'teacher'), markBulkValidator, validate, markBulk);
 router.post('/face', authorize('admin', 'teacher'), faceLimiter, handleMulterError(uploadFaceImage), markByFace);
 router.post('/submit-session', authorize('admin', 'teacher'), submitLiveSession);

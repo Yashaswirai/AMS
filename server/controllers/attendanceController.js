@@ -48,21 +48,61 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
  * POST /api/v1/attendance/manual
  */
 export const markManual = asyncHandler(async (req, res) => {
-  const { studentId, subjectId, date, period, status, remarks } = req.body;
+  const { studentId, subjectId, subjectCode, date, period = 1, status, remarks, records } = req.body;
 
+  let targetSubjectId = subjectId;
+  if (!targetSubjectId && subjectCode) {
+    const sDoc = await Subject.findOne({ code: subjectCode });
+    if (sDoc) targetSubjectId = sDoc._id;
+  }
+
+  const formattedDate = new Date(date || Date.now());
+  formattedDate.setHours(0, 0, 0, 0);
+
+  // If batch manual records array sent from ManualAttendance UI
+  if (records && Array.isArray(records) && records.length > 0) {
+    if (!targetSubjectId) throw ApiError.notFound('Subject not found for code provided');
+    const savedRecords = [];
+    for (const item of records) {
+      let attendance = await Attendance.findOne({
+        student: item.studentId,
+        subject: targetSubjectId,
+        date: formattedDate,
+        period,
+      });
+
+      if (attendance) {
+        attendance.status = item.status || ATTENDANCE_STATUS.PRESENT;
+        attendance.markedBy = req.user.id;
+        attendance.method = ATTENDANCE_METHOD.MANUAL;
+        await attendance.save();
+      } else {
+        attendance = await Attendance.create({
+          student: item.studentId,
+          subject: targetSubjectId,
+          date: formattedDate,
+          period,
+          status: item.status || ATTENDANCE_STATUS.PRESENT,
+          markedBy: req.user.id,
+          method: ATTENDANCE_METHOD.MANUAL,
+        });
+      }
+      await updateStudentPercentage(item.studentId);
+      savedRecords.push(attendance);
+    }
+    return new ApiResponse(200, savedRecords, 'Attendance marked successfully for class roster').send(res);
+  }
+
+  // Single student manual marking
   const student = await Student.findById(studentId);
   if (!student) throw ApiError.notFound('Student not found');
 
-  const subject = await Subject.findById(subjectId);
+  const subject = await Subject.findById(targetSubjectId);
   if (!subject) throw ApiError.notFound('Subject not found');
 
-  const formattedDate = new Date(date);
-  formattedDate.setHours(0, 0, 0, 0);
-
-  // Check if attendance record already exists
   let attendance = await Attendance.findOne({
     student: studentId,
-    subject: subjectId,
+    subject: targetSubjectId,
     date: formattedDate,
     period,
   });
@@ -76,7 +116,7 @@ export const markManual = asyncHandler(async (req, res) => {
   } else {
     attendance = await Attendance.create({
       student: studentId,
-      subject: subjectId,
+      subject: targetSubjectId,
       date: formattedDate,
       period,
       status,
@@ -94,7 +134,7 @@ export const markManual = asyncHandler(async (req, res) => {
     io.emit('attendanceMarked', {
       attendanceId: attendance._id,
       studentId,
-      subjectId,
+      subjectId: targetSubjectId,
       status,
       date: formattedDate,
       period,
@@ -102,6 +142,65 @@ export const markManual = asyncHandler(async (req, res) => {
   }
 
   return new ApiResponse(200, attendance, 'Attendance marked successfully (Manual)').send(res);
+});
+
+/**
+ * GET /api/v1/attendance/roster
+ * Fetch student roster for manual roll call.
+ */
+export const getClassRoster = asyncHandler(async (req, res) => {
+  const { subjectCode, date, period } = req.query;
+
+  let subjectDoc = null;
+  if (subjectCode) {
+    subjectDoc = await Subject.findOne({ code: subjectCode });
+    if (!subjectDoc) {
+      subjectDoc = await Subject.findById(subjectCode).catch(() => null);
+    }
+  }
+
+  let studentQuery = { isActive: true };
+  if (subjectDoc && subjectDoc.course) {
+    studentQuery.course = subjectDoc.course;
+  }
+
+  const enrolledStudents = await Student.find(studentQuery)
+    .populate('user', 'name email avatar')
+    .sort('rollNumber')
+    .lean();
+
+  let startOfDay = new Date();
+  if (date) {
+    startOfDay = new Date(date);
+  }
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(startOfDay);
+  endOfDay.setDate(endOfDay.getDate() + 1);
+
+  let existingMap = new Map();
+  if (subjectDoc) {
+    const query = {
+      subject: subjectDoc._id,
+      date: { $gte: startOfDay, $lt: endOfDay },
+    };
+    if (period) query.period = parseInt(period);
+
+    const existingRecords = await Attendance.find(query).sort('-updatedAt -createdAt').lean();
+    existingRecords.forEach((r) => {
+      if (!existingMap.has(r.student.toString())) {
+        existingMap.set(r.student.toString(), r.status);
+      }
+    });
+  }
+
+  const roster = enrolledStudents.map((s) => ({
+    studentId: s._id.toString(),
+    name: s.user?.name || `Student ${s.rollNumber}`,
+    rollNumber: s.rollNumber,
+    status: existingMap.get(s._id.toString()) || ATTENDANCE_STATUS.PRESENT,
+  }));
+
+  return new ApiResponse(200, roster, 'Class roster fetched successfully').send(res);
 });
 
 /**
@@ -500,26 +599,52 @@ export const generateQRSession = asyncHandler(async (req, res) => {
  */
 export const getHistory = asyncHandler(async (req, res) => {
   const { page, limit, skip } = paginate(req.query);
-  let resolvedStudentId = studentId;
-  if (studentId === 'me' || req.user?.role === 'student') {
-    const student = await Student.findOne({ user: req.user?._id || req.user?.id });
-    resolvedStudentId = student ? student._id : null;
-  }
+  const { studentId, subjectId, status, startDate, endDate, date, courseId, semester } = req.query;
 
   const filter = {};
 
-  if (resolvedStudentId) filter.student = resolvedStudentId;
-  else if (studentId === 'me' || req.user?.role === 'student') filter.student = null; // No attendance if no student profile
-  if (subjectId) filter.subject = subjectId;
+  // Handle student filter
+  if (studentId === 'me' || req.user?.role === 'student') {
+    const studentDoc = await Student.findOne({ user: req.user?._id || req.user?.id });
+    if (studentDoc) {
+      filter.student = studentDoc._id;
+    } else {
+      return ApiResponse.paginated([], buildPaginationMeta(0, page, limit), 'Attendance history fetched').send(res);
+    }
+  } else if (studentId && studentId !== 'all') {
+    filter.student = studentId;
+  }
+
+  // Handle teacher filter
+  if (req.user?.role === 'teacher') {
+    const teacherDoc = await Teacher.findOne({ user: req.user?._id || req.user?.id });
+    if (teacherDoc) {
+      const subjects = await Subject.find({ teacher: teacherDoc._id }).select('_id').lean();
+      const subjectIds = subjects.map((s) => s._id);
+      if (subjectId) {
+        filter.subject = subjectId;
+      } else if (subjectIds.length > 0) {
+        filter.subject = { $in: subjectIds };
+      }
+    }
+  } else if (subjectId) {
+    filter.subject = subjectId;
+  }
+
   if (status) filter.status = status;
 
-  if (startDate || endDate) {
+  if (date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    const nextD = new Date(d);
+    nextD.setDate(nextD.getDate() + 1);
+    filter.date = { $gte: d, $lt: nextD };
+  } else if (startDate || endDate) {
     filter.date = {};
     if (startDate) filter.date.$gte = new Date(startDate);
     if (endDate) filter.date.$lte = new Date(endDate);
   }
 
-  // Filter by course or semester (requires populating and filtering or joining)
   if (courseId || semester) {
     const studentFilters = {};
     if (courseId) studentFilters.course = courseId;
@@ -531,11 +656,10 @@ export const getHistory = asyncHandler(async (req, res) => {
 
   const [records, total] = await Promise.all([
     Attendance.find(filter)
-      .populate('student', 'rollNumber')
       .populate({ path: 'student', populate: { path: 'user', select: 'name email' } })
       .populate('subject', 'name code')
       .populate('markedBy', 'name role')
-      .sort('-date -period')
+      .sort('-date -createdAt')
       .skip(skip)
       .limit(limit)
       .lean(),
