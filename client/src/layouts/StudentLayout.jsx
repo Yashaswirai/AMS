@@ -7,12 +7,13 @@ import RouteContentBoundary from '../components/common/RouteErrorBoundary.jsx';
 import {
   RiCameraLensFill, RiDashboardLine, RiCalendarCheckLine, RiCalendar2Line,
   RiUserSmileLine, RiFileTextLine, RiBellLine, RiFileChartLine,
-  RiSunLine, RiMoonLine, RiMenuUnfoldLine, RiLogoutBoxLine
+  RiSunLine, RiMoonLine, RiMenuUnfoldLine, RiLogoutBoxLine, RiQrCodeLine
 } from 'react-icons/ri';
 import { FiChevronDown } from 'react-icons/fi';
 
 const NAV_ITEMS = [
   { path: '/student/dashboard', icon: RiDashboardLine, label: 'Dashboard' },
+  { path: '/student/qr-scanner', icon: RiQrCodeLine, label: 'Scan QR Check-In' },
   { path: '/student/attendance', icon: RiCalendarCheckLine, label: 'My Attendance' },
   { path: '/student/calendar', icon: RiCalendar2Line, label: 'Calendar' },
   { path: '/student/face-profile', icon: RiUserSmileLine, label: 'Face Profile' },

@@ -42,6 +42,7 @@ const TeacherNotifications = lazy(() => import('./pages/teacher/Notifications.js
 
 // Student pages
 const StudentDashboard = lazy(() => import('./pages/student/Dashboard.jsx'));
+const StudentQRScanner = lazy(() => import('./pages/student/QRScanner.jsx'));
 const StudentAttendanceHistory = lazy(() => import('./pages/student/AttendanceHistory.jsx'));
 const StudentAttendanceCalendar = lazy(() => import('./pages/student/AttendanceCalendar.jsx'));
 const StudentFaceProfile = lazy(() => import('./pages/student/FaceProfile.jsx'));
@@ -103,6 +104,7 @@ function App() {
           <Route element={<ProtectedRoute allowedRoles={['student']} />}>
             <Route element={<StudentLayout />}>
               <Route path="/student/dashboard" element={<StudentDashboard />} />
+              <Route path="/student/qr-scanner" element={<StudentQRScanner />} />
               <Route path="/student/attendance" element={<StudentAttendanceHistory />} />
               <Route path="/student/calendar" element={<StudentAttendanceCalendar />} />
               <Route path="/student/face-profile" element={<StudentFaceProfile />} />

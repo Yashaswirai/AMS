@@ -469,11 +469,16 @@ export const generateQRSession = asyncHandler(async (req, res) => {
  */
 export const getHistory = asyncHandler(async (req, res) => {
   const { page, limit, skip } = paginate(req.query);
-  const { studentId, subjectId, startDate, endDate, status, courseId, semester } = req.query;
+  let resolvedStudentId = studentId;
+  if (studentId === 'me' || req.user?.role === 'student') {
+    const student = await Student.findOne({ user: req.user?._id || req.user?.id });
+    resolvedStudentId = student ? student._id : null;
+  }
 
   const filter = {};
 
-  if (studentId) filter.student = studentId;
+  if (resolvedStudentId) filter.student = resolvedStudentId;
+  else if (studentId === 'me' || req.user?.role === 'student') filter.student = null; // No attendance if no student profile
   if (subjectId) filter.subject = subjectId;
   if (status) filter.status = status;
 
@@ -516,8 +521,17 @@ export const getStats = asyncHandler(async (req, res) => {
   let { studentId } = req.params;
 
   if (studentId === 'me') {
-    const student = await Student.findOne({ user: req.user.id });
-    if (!student) throw ApiError.notFound('Student profile not found');
+    const student = await Student.findOne({ user: req.user?._id || req.user?.id });
+    if (!student) {
+      return new ApiResponse(200, {
+        overallPercentage: 0,
+        totalClasses: 0,
+        attendedClasses: 0,
+        absentClasses: 0,
+        subjects: [],
+        aiInsight: 'Welcome! No attendance records registered yet.'
+      }, 'Student stats fetched').send(res);
+    }
     studentId = student._id;
   }
 

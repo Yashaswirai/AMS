@@ -441,7 +441,7 @@ export const computeStudentStats = async (studentId) => {
         as: 'subject',
       },
     },
-    { $unwind: { path: '$subject', preserveNullAndEmpty: true } },
+    { $unwind: { path: '$subject', preserveNullAndEmptyArrays: true } },
     { $sort: { percentage: 1 } },
   ]);
 
