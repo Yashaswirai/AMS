@@ -18,6 +18,9 @@ function FaceDatasets() {
       const res = await api.get('/face/datasets');
       const list = res.data?.data?.datasets || res.data?.datasets || [];
       setDatasets(list);
+      if (list.length > 0 && !selectedStudent) {
+        setSelectedStudent(list[0]);
+      }
     } catch (err) {
       console.warn('API error fetching datasets:', err);
       setDatasets([]);
