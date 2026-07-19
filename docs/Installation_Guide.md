@@ -106,6 +106,7 @@ cd AMS
         ```env
         VITE_API_URL=http://localhost:5000/api/v1
         ```
+    *   *Note on `html5-qrcode` & Camera/Geolocation permissions*: Ensure your browser is allowed access to both Camera and Location Services for `/student/qr-scanner` and `/student/face-profile`.
 4.  Start the Vite local development server:
     ```bash
     npm run dev

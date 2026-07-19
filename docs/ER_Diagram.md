@@ -113,8 +113,10 @@ erDiagram
         date date
         string period "1|2|3|4|5|6"
         string status "Present|Absent|Late|Leave"
-        string markedBy "face_recognition|manual"
+        string markedBy "face_recognition|manual|qr_scanner|system"
         float confidenceScore
+        float latitude
+        float longitude
         boolean isEdited
         string editReason
         ObjectId editedBy FK
@@ -131,6 +133,11 @@ erDiagram
         date date
         string period
         string room
+        string qrToken
+        date qrExpiry
+        float latitude
+        float longitude
+        float radius
         string status "open|closed|cancelled"
         int totalPresent
         int totalAbsent

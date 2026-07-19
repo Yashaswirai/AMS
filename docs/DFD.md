@@ -25,6 +25,7 @@ graph TD
     ADMIN -->|"User Creation & Credentials"| SYSTEM
     ADMIN -->|"Course, Subject, & Timetable Data"| SYSTEM
     ADMIN -->|"System Configuration Settings"| SYSTEM
+    ADMIN -->|"Trigger AI Model Retrain"| SYSTEM
     SYSTEM -->|"Audit Logs & System Reports"| SYSTEM
     SYSTEM -->|"System Statistics & Health Logs"| ADMIN
 
@@ -32,12 +33,13 @@ graph TD
     TEACHER -->|"Attendance Session Details"| SYSTEM
     TEACHER -->|"Manual Attendance Overrides"| SYSTEM
     TEACHER -->|"Leave Approval / Rejection"| SYSTEM
-    SYSTEM -->|"Timetable Schedules"| TEACHER
+    SYSTEM -->|"Timetable Schedules (Assigned Only)"| TEACHER
     SYSTEM -->|"Class Attendance Reports"| TEACHER
     SYSTEM -->|"Leave Request Notifications"| TEACHER
 
     %% Data Flows - Student
-    STUDENT -->|"Webcam Face Frames (Enrollment)"| SYSTEM
+    STUDENT -->|"Dual-Mode Face Registration (Live/Upload)"| SYSTEM
+    STUDENT -->|"QR Code Scan + Lat/Lng Geolocation"| SYSTEM
     STUDENT -->|"Leave Requests"| SYSTEM
     STUDENT -->|"Profile Updates"| SYSTEM
     SYSTEM -->|"Attendance Dashboards"| STUDENT

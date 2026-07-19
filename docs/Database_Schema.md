@@ -438,6 +438,11 @@ const attendanceSessionSchema = new mongoose.Schema({
   date: { type: Date, required: true },
   period: { type: String, required: true },
   room: { type: String, default: '' },
+  qrToken: { type: String, default: null },
+  qrExpiry: { type: Date, default: null },
+  latitude: { type: Number, default: null },
+  longitude: { type: Number, default: null },
+  radius: { type: Number, default: 50, comment: 'Allowed geolocation radius in meters' },
   status: { type: String, enum: ['open', 'closed', 'cancelled'], default: 'open' },
   totalStudents: { type: Number, default: 0 },
   totalPresent: { type: Number, default: 0 },
@@ -474,6 +479,11 @@ const attendanceSessionSchema = new mongoose.Schema({
   "date": "2026-07-16T00:00:00.000Z",
   "period": "3",
   "room": "CR-205",
+  "qrToken": "qr_session_token_xyz789",
+  "qrExpiry": "2026-07-16T10:30:00.000Z",
+  "latitude": 12.971598,
+  "longitude": 77.594566,
+  "radius": 50,
   "status": "closed",
   "totalStudents": 60,
   "totalPresent": 52,
@@ -509,8 +519,12 @@ const attendanceSchema = new mongoose.Schema({
   },
   markedBy: {
     type: String,
-    enum: ['face_recognition', 'manual', 'system'],
+    enum: ['face_recognition', 'manual', 'qr_scanner', 'system'],
     required: true
+  },
+  location: {
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null }
   },
   confidenceScore: { type: Number, min: 0, max: 1, default: null },
   isEdited: { type: Boolean, default: false },

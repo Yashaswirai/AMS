@@ -123,6 +123,9 @@ Deploy your frontend to Vercel to distribute your static assets globally via CDN
     ```
 5.  **Deploy**: Click **Deploy**. Vercel will build the React SPA and provide a live URL (e.g., `frams-app.vercel.app`).
 
+> [!NOTE]
+> **HTTPS Security Requirement**: Modern web browsers mandate an HTTPS connection to enable optical camera APIs (`html5-qrcode` / `MediaDevices.getUserMedia()`) and HTML5 Geolocation APIs (`navigator.geolocation`). Vercel provides SSL certificates out-of-the-box, ensuring both features operate seamlessly in production.
+
 ---
 
 ## 6. Environment Variables Reference Guide

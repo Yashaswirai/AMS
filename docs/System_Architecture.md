@@ -68,7 +68,9 @@ The services communicate over **HTTPS REST APIs**. The Backend acts as the orche
 **Responsibilities:**
 - Render role-based dashboards (Admin / Teacher / Student)
 - Manage application state (Redux Toolkit + RTK Query)
-- Handle webcam access via WebRTC / MediaDevices API
+- Handle webcam access via WebRTC / MediaDevices API for face recognition & dual-mode enrollment (`/student/face-profile`: 10 live photos or up to 10 multi-angle uploads)
+- Handle optical camera QR code scanner via `html5-qrcode` (`/student/qr-scanner`)
+- Capture device Geolocation (latitude, longitude) for location-restricted QR attendance check-in
 - Capture and encode video frames as base64 JPEG
 - Display real-time face recognition results
 - Form validation (React Hook Form + Zod)
@@ -81,6 +83,7 @@ The services communicate over **HTTPS REST APIs**. The Backend acts as the orche
 | Redux Toolkit | 1.9 | Global state management |
 | RTK Query | (RTK) | API caching and data fetching |
 | React Router | 6.x | Client-side routing |
+| html5-qrcode | 2.x | Optical QR camera scanner for student check-in |
 | Tailwind CSS | 3.x | Utility-first styling |
 | shadcn/ui | latest | Accessible UI components |
 | Chart.js | 4.x | Attendance charts and graphs |
@@ -98,11 +101,13 @@ The services communicate over **HTTPS REST APIs**. The Backend acts as the orche
 **Responsibilities:**
 - REST API endpoint implementation
 - JWT authentication and authorization middleware
-- RBAC enforcement (Admin / Teacher / Student guards)
+- Strict Teacher Access Control & Data Isolation (filtering `GET /subjects` and `GET /students` to teacher-assigned subjects and courses)
+- Geolocation distance calculation (Haversine formula, default 50m radius) for QR attendance verification (`POST /api/v1/attendance/mark-qr`)
+- Retrain AI Classifier trigger (`POST /api/v1/face/train` invoking Python FastAPI `POST /api/ml/train`)
 - Business logic (session management, leave workflow, notification dispatch)
 - Database operations via Mongoose ODM
 - Inter-service communication to CV API
-- File upload handling (ImageKit.io via Multer)
+- File upload handling (ImageKit.io CDN integration)
 - Email dispatch (Nodemailer)
 - Rate limiting, CORS, helmet security headers
 - Audit logging middleware

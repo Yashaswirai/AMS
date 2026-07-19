@@ -501,13 +501,13 @@ Returns today's schedule, pending leave requests, low-attendance students.
 
 ### GET `/teacher/students` 📚
 
-Get all students under teacher's assigned subjects.
+Get all students under teacher's assigned subjects. **Strict Data Isolation Enforced:** Logged-in teachers can ONLY see students enrolled in the courses corresponding to subjects assigned to them by Admin. Live Attendance, Manual Attendance, and Student Search UI components strictly filter by teacher-assigned classes.
 
 Query: `subjectId`, `section`, `semester`, `search`
 
 ### GET `/teacher/students/:studentId/attendance` 📚
 
-View a specific student's attendance across teacher's subjects.
+View a specific student's attendance across teacher's assigned subjects.
 
 ---
 
@@ -721,6 +721,42 @@ Process face recognition result and mark attendance.
   }
 }
 ```
+
+---
+
+### POST `/attendance/mark-qr` 🎓
+
+Student QR Attendance Scanner & Geolocation Verification endpoint. Allows students to mark attendance by scanning the active lecture QR code at `/student/qr-scanner`. Compares student geolocation (latitude, longitude) against session coordinates using Haversine formula (radius check, default 50m) for proxy prevention.
+
+**Request Body:**
+```json
+{
+  "sessionId": "65g7h8i9j0k1l2m3n4o5p6q7",
+  "qrToken": "qr_session_token_xyz789",
+  "latitude": 12.971598,
+  "longitude": 77.594566
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Attendance marked successfully via QR Scanner",
+  "data": {
+    "attendance": {
+      "_id": "65h8i9...",
+      "studentId": "64b2c3...",
+      "sessionId": "65g7h8...",
+      "status": "Present",
+      "markedBy": "qr_scanner",
+      "distanceMeters": 14.2
+    }
+  }
+}
+```
+
+**Status Codes:** `200`, `400` (`INVALID_LOCATION` - outside radius; `QR_EXPIRED` - expired token), `401` (unauthorized), `409` (already marked)
 
 ---
 
@@ -948,10 +984,77 @@ Cancel a pending leave request.
 
 ---
 
-## 9. Face Recognition (CV API)
+## 9. Face Recognition & Registration Endpoints
 
-> **Note:** CV API base URL: `https://frams-cv.onrender.com/api`
-> All CV API requests include header: `X-API-Key: {CV_API_KEY}`
+> **Note:** Backend Base URL: `https://frams-backend.onrender.com/api/v1`
+> CV API Base URL: `https://frams-cv.onrender.com/api` (all requests include `X-API-Key: {CV_API_KEY}`)
+
+---
+
+### POST `/face/register` 🎓/🔑+
+
+Dual-mode Student Face Registration endpoint for `/student/face-profile`. Accepts base64 image arrays or batch uploads from either Mode 1 (Live Automated Camera Capture: 10 photos) or Mode 2 (Multi-Angle Photo Upload: file picker up to 10 angles).
+
+**Request Body:**
+```json
+{
+  "images": [
+    "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+    "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+  ],
+  "studentId": "64b2c3d4e5f6g7h8i9j0k1l2"
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Face profile registered successfully",
+  "data": {
+    "faceDatasetId": "65f1a2b3c4d5e6f7g8h9i0",
+    "totalImagesUploaded": 10,
+    "cdnFolder": "frams/faces/64b2c3d4e5f6g7h8i9j0k1l2",
+    "verified": true
+  }
+}
+```
+
+---
+
+### POST `/face/train` 👑
+
+Node.js Backend endpoint to trigger AI classifier retraining and face vector cache synchronization. Invokes the Python FastAPI CV service endpoint (`POST /api/ml/train`).
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "AI Classifier retrained and face vector cache synchronized successfully",
+  "data": {
+    "trainedStudentModels": 142,
+    "knownFacesCount": 1420,
+    "accuracy": 0.984,
+    "syncTimestamp": "2026-07-16T11:30:00.000Z"
+  }
+}
+```
+
+---
+
+### POST `/api/ml/train` 🔑 (Python CV API)
+
+Triggers scikit-learn / dlib classifier model retraining and updates the in-memory face vector cache.
+
+**Response 200 OK:**
+```json
+{
+  "status": "success",
+  "trained_count": 142,
+  "known_faces_count": 1420,
+  "execution_time_seconds": 3.42
+}
+```
 
 ---
 

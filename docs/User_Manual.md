@@ -73,8 +73,11 @@ The Administrator manages master data, registers students and faculty, configure
 
 ---
 
-### 2.5 Face Dataset Administration
-*   To check face registration status, open **Student Rosters** and view the **Face Enrolled** column (green checkmark for enrolled, grey cross for missing).
+### 2.5 Face Dataset Administration & AI Classifier Retraining
+*   To check face registration status, open **Student Rosters** or **Face Datasets Inspector** to view enrolled student datasets.
+*   **Retrain AI Classifier**:
+    1. Navigate to **Face Datasets Inspector** on the Admin dashboard.
+    2. Click **Retrain AI Model**. This triggers `POST /api/v1/face/train` to invoke the Python FastAPI service (`POST /api/ml/train`), which retrains the classifier weights and synchronizes the face vector cache across active nodes.
 *   If a student needs to re-register their face:
     1. Open the student's profile.
     2. Click **Reset Face Data**.
@@ -96,6 +99,9 @@ The Administrator manages master data, registers students and faculty, configure
 
 Teachers open attendance sessions, run face recognition, verify student presence, manage leaves, and view reports.
 
+> [!IMPORTANT]
+> **Strict Data Isolation for Teachers**: Logged-in teachers can ONLY see subjects assigned to them by Admin, and ONLY see students enrolled in the courses corresponding to those assigned subjects. All dropdowns in Live Attendance, Manual Attendance, and Student Search strictly filter data based on teacher assignments.
+
 ### 3.1 Marking Attendance via Webcam
 
 ```
@@ -107,7 +113,7 @@ Step 4: Close Session → Commit Absentees & Update Stats
 
 #### Step-by-Step Instructions:
 1.  From the sidebar, click **Attendance** → **New Session**.
-2.  Select the Subject, Section, and Period. The classroom number and student count will populate automatically.
+2.  Select your assigned Subject, Section, and Period. (The session will generate an active QR token for student check-in).
 3.  Click **Open Camera**. Approve the browser request for webcam permissions.
 4.  Position the webcam to cover the classroom. The system will start recognizing students.
 5.  Students' names will appear on the right side of the screen with green checkmarks as they are recognized.
@@ -142,7 +148,7 @@ Step 4: Close Session → Commit Absentees & Update Stats
 
 ## 4. Student Manual
 
-Students can track their attendance, submit leave requests, and view notifications.
+Students can track their attendance, register face profiles, scan class QR codes, submit leave requests, and view notifications.
 
 ### 4.1 Dashboard Overview
 Log in to view your dashboard:
@@ -150,13 +156,27 @@ Log in to view your dashboard:
 *   **Subject Breakdowns**: Cards for each subject showing your attended classes and required attendance.
 *   **ML Prediction Warning**: Shows your risk level for falling below 75% attendance.
 
-> [!NOTE]
-> **Screenshot Placeholder: Student Portal Dashboard**
-> *Description:* User dashboard with color-coded attendance gauges, warning banners for subjects below 75%, and a calendar view of upcoming classes.
+---
+
+### 4.2 Registering Student Face Profile (Dual Modes)
+1.  Navigate to `/student/face-profile` on the student navigation menu.
+2.  Choose your preferred registration mode:
+    *   **Mode 1: Live Automated Camera Capture**: Click **Start Auto Capture**. Grant webcam permissions. The system automatically captures 10 high-quality face photos while guiding your posture (front, left, right, up, down).
+    *   **Mode 2: Multi-Angle Photo Upload**: Click **Upload Photos**. Use the file picker to select up to 10 clear photos taken from different angles.
+3.  Click **Submit Face Profile**. The system validates face quality, uploads images to ImageKit CDN, and updates your enrollment status to Enrolled.
 
 ---
 
-### 4.2 Submitting Leave Applications
+### 4.3 QR Attendance Scanner & Geolocation Verification
+1.  When a lecture session is active, navigate to `/student/qr-scanner`.
+2.  Grant browser permissions for both **Camera** (for optical QR scanner) and **Location Services** (GPS).
+3.  Point your camera at the teacher's active lecture QR code.
+4.  The `html5-qrcode` scanner reads the session token and sends your GPS coordinates (latitude, longitude) to `POST /api/v1/attendance/mark-qr`.
+5.  If your location is within the classroom boundary (default 50 meters radius), your attendance is marked as **Present (`qr_scanner`)**. If you are outside the boundary, the system rejects the check-in with an `INVALID_LOCATION` error to prevent proxy attendance.
+
+---
+
+### 4.4 Submitting Leave Applications
 1.  From the sidebar, click **Apply for Leave**.
 2.  Enter the start and end dates.
 3.  Select the **Leave Type** (Medical, Personal, or Academic).

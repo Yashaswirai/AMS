@@ -30,6 +30,7 @@ flowchart LR
         UC_BULK_IMP("UC-11: Bulk Import Students")
         UC_MGMT_TT("UC-12: Manage Timetable Schedule")
         UC_SYS_CONF("UC-13: Manage System Configurations")
+        UC_RETRAIN_AI("UC-14: Retrain AI Classifier")
 
         %% Teacher Use Cases
         UC_OPEN_SESS("UC-20: Open Attendance Session")
@@ -40,7 +41,8 @@ flowchart LR
 
         %% Student Use Cases
         UC_SUB_LEAVE("UC-30: Submit Leave Request")
-        UC_ENROLL_FACE("UC-31: Register Face Dataset")
+        UC_ENROLL_FACE("UC-31: Register Face Profile (Dual-Mode)")
+        UC_SCAN_QR("UC-32: Mark Attendance via QR & Geolocation")
 
         %% Shared Analytics & Reporting
         UC_GEN_REP("UC-40: Generate & Export Reports")
@@ -58,6 +60,7 @@ flowchart LR
     A --> UC_BULK_IMP
     A --> UC_MGMT_TT
     A --> UC_SYS_CONF
+    A --> UC_RETRAIN_AI
     A --> UC_GEN_REP
 
     T --> UC_AUTH
@@ -72,10 +75,12 @@ flowchart LR
     S --> UC_AUTH
     S --> UC_SUB_LEAVE
     S --> UC_ENROLL_FACE
+    S --> UC_SCAN_QR
     S --> UC_VIEW_DASH
 
     CV --> UC_MARK_FACE
     CV --> UC_ENROLL_FACE
+    CV --> UC_RETRAIN_AI
 
     SY --> UC_SEND_ALERT
     SY --> UC_AUDIT_LOG
@@ -84,6 +89,7 @@ flowchart LR
     %% Use Case relationships
     UC_MARK_FACE -.->|"<<include>>"| UC_AUTH
     UC_ENROLL_FACE -.->|"<<include>>"| UC_AUTH
+    UC_SCAN_QR -.->|"<<include>>"| UC_AUTH
 ```
 
 ---

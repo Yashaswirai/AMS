@@ -59,10 +59,12 @@ The system integrates with:
 - Vercel (frontend hosting)
 
 **In Scope:**
-- User registration and role-based access control (Admin, Teacher, Student)
-- Face dataset collection and model training per student
-- Real-time face recognition attendance marking via webcam
+- User registration and role-based access control (Admin, Teacher, Student) with strict teacher data isolation
+- Dual-mode face registration (Live Automated Camera Capture with 10 photos & Multi-Angle Photo Upload up to 10 angles) at `/student/face-profile`
+- Real-time webcam face recognition attendance marking for teachers
+- Student optical camera QR attendance scanner at `/student/qr-scanner` with geolocation verification (lat/lng/radius proxy prevention)
 - Manual attendance override and correction
+- AI Model Retraining via `POST /api/v1/face/train` triggering CV service `POST /api/ml/train` and dataset inspection
 - Leave request workflow (Student → Teacher → Admin)
 - Timetable management and subject-wise attendance
 - Automated attendance reports with analytics
@@ -159,17 +161,19 @@ The system follows a **three-tier client–server architecture**:
 
 The primary functions of FRAMS are:
 
-1. **Authentication & Authorization** – Secure login, JWT-based session management, role-based access.
+1. **Authentication & Authorization** – Secure login, JWT-based session management, strict teacher data isolation, role-based access.
 2. **User & Student Management** – CRUD for all user roles, enrollment of students into departments/courses/subjects.
-3. **Face Dataset Collection** – Capture and store 50+ face images per student with validation.
-4. **Face Recognition Attendance** – Real-time webcam-based face recognition; mark attendance automatically.
-5. **Manual Attendance Management** – Faculty can add/edit/delete attendance records for corrections.
-6. **Timetable Management** – Define weekly class schedules linking teacher–subject–class–room.
-7. **Leave Request Workflow** – Students submit, teachers approve/reject, admin oversees.
-8. **Attendance Analytics & Reports** – Per-student, per-subject, per-class attendance statistics.
-9. **AI Attendance Prediction** – ML model predicts students at risk of shortage before end of semester.
-10. **Notifications & Alerts** – Automated alerts for low attendance, leave approvals, system events.
-11. **Audit Logging** – Immutable log of all system events for accountability.
+3. **Face Registration & Dataset Collection** – Dual-mode registration at `/student/face-profile`: Live Automated Camera Capture (10 photos) and Multi-Angle Photo Upload (file picker supporting up to 10 angles).
+4. **Face Recognition Attendance** – Real-time webcam-based face recognition; mark attendance automatically for teacher-assigned classes.
+5. **Student QR Attendance Scanner & Geolocation Verification** – Optical camera scanner (`html5-qrcode`) at `/student/qr-scanner` with lat/lng/radius distance comparison for proxy prevention.
+6. **Retrain AI Classifier Integration** – Admin trigger `POST /api/v1/face/train` invoking Python FastAPI `POST /api/ml/train` to retrain ML classifier and sync face vector cache.
+7. **Manual Attendance Management** – Faculty can add/edit/delete attendance records for corrections within assigned classes.
+8. **Timetable Management** – Define weekly class schedules linking teacher–subject–class–room.
+9. **Leave Request Workflow** – Students submit, teachers approve/reject, admin oversees.
+10. **Attendance Analytics & Reports** – Per-student, per-subject, per-class attendance statistics.
+11. **AI Attendance Prediction** – ML model predicts students at risk of shortage before end of semester.
+12. **Notifications & Alerts** – Automated alerts for low attendance, leave approvals, system events.
+13. **Audit Logging** – Immutable log of all system events for accountability.
 
 ### 2.3 User Classes and Characteristics
 
@@ -443,29 +447,29 @@ Requirements are numbered FR-01 through FR-50, organized by module. Priority: **
 
 ---
 
-### Module 5: Face Dataset Collection
+### Module 5: Student Face Profile & Registration
 
-#### FR-17 – Initiate Face Dataset Collection
+#### FR-17 – Dual-Mode Face Registration Panel
 | Field | Detail |
 |---|---|
 | ID | FR-17 |
-| Title | Start Face Dataset Session |
+| Title | Student Face Profile Registration |
 | Priority | P1 |
-| Description | Admin or Teacher initiates a face dataset collection session for a student or batch of students. The CV API is invoked to begin webcam capture. |
-| Inputs | `studentId` (or `batchId` for group enrollment) |
-| Processing | Verify student not already enrolled → Initialize CV API session → Return session token |
-| Outputs | `{ sessionId, targetStudentId, instructions }` |
+| Description | Enhanced student face registration panel at `/student/face-profile` supporting two enrollment modes: Mode 1 - Live Automated Camera Capture (captures 10 photos automatically with pose guidance), and Mode 2 - Multi-Angle Photo Upload (file picker supporting up to 10 angles for dataset generation). |
+| Inputs | Live webcam feed OR file picker selection (up to 10 images) |
+| Processing | Validate image inputs → Encode images to base64 array → Issue POST request to `/api/v1/face/register` |
+| Outputs | `{ success: true, message: "Face profile registered successfully", imageCount: N }` |
 
-#### FR-18 – Capture Face Images
+#### FR-18 – Batch Face Registration Endpoint
 | Field | Detail |
 |---|---|
 | ID | FR-18 |
-| Title | Capture and Validate Face Frames |
+| Title | Batch Face Registration API |
 | Priority | P1 |
-| Description | The CV API receives webcam frames, detects faces, validates quality (blur score, face size, lighting), and accumulates up to 100 images per student across different angles (frontal, left, right, up, down). |
-| Inputs | Base64-encoded webcam frames streamed to CV API |
-| Processing | Face detection → Quality check (Laplacian variance > 100) → Angle diversity check → Store valid images temporarily |
-| Outputs | `{ captured: N, target: 100, quality: "good/poor", angle: "frontal/left/..." }` |
+| Description | Backend endpoint `POST /api/v1/face/register` receives base64 image arrays or batch uploads, validates face quality via CV service, stores images on ImageKit.io, computes face encodings, and updates student faceEnrolled status. |
+| Inputs | `images`: array of base64 data URIs or file uploads, `studentId` (or auto from JWT) |
+| Processing | Extract base64 frames → Send to CV API for quality check & 128-dim encoding → Upload to ImageKit folder `frams/faces/{studentId}/` → Upsert FaceDataset doc → Trigger vector cache sync |
+| Outputs | `{ registered: true, totalImages: N, faceDatasetId: ID, verified: true }` |
 
 #### FR-19 – Generate Face Encodings
 | Field | Detail |
@@ -473,7 +477,7 @@ Requirements are numbered FR-01 through FR-50, organized by module. Priority: **
 | ID | FR-19 |
 | Title | Generate 128-dim Face Encodings |
 | Priority | P1 |
-| Description | After capturing sufficient images, the CV API computes the 128-dimensional face encoding for each image using dlib's ResNet face recognition model. The mean encoding is stored. |
+| Description | The CV API computes 128-dimensional face encoding vectors for captured/uploaded images using dlib's ResNet face recognition model. The mean encoding is computed and stored. |
 | Inputs | `studentId`, collected image set |
 | Processing | For each image → `face_recognition.face_encodings()` → Average encodings → Store in FaceDataset document |
 | Outputs | `{ studentId, encodingCount, avgEncoding: [128 floats], storedAt }` |
@@ -484,21 +488,21 @@ Requirements are numbered FR-01 through FR-50, organized by module. Priority: **
 | ID | FR-20 |
 | Title | Store Face Images in CDN |
 | Priority | P1 |
-| Description | Validated face images are uploaded to ImageKit.io under a folder named by student ID. ImageKit URLs are stored in the FaceDataset document. |
-| Inputs | Image files, `studentId` |
+| Description | Validated face images are uploaded to ImageKit.io under a folder named by student ID. ImageKit URLs and file IDs are stored in the FaceDataset document. |
+| Inputs | Image files/base64 strings, `studentId` |
 | Processing | Upload to ImageKit folder `frams/faces/{studentId}/` → Store fileId and URL in DB |
-| Outputs | Array of `{ publicId, url }` objects |
+| Outputs | Array of `{ fileId, url }` objects |
 
-#### FR-21 – Retrain Face Recognition Model
+#### FR-21 – Retrain AI Classifier & Cache Sync
 | Field | Detail |
 |---|---|
 | ID | FR-21 |
-| Title | Update Known Faces Registry |
+| Title | Retrain AI Classifier Integration |
 | Priority | P1 |
-| Description | After any new face enrollment or update, the system rebuilds the in-memory known_face_encodings list used for recognition. |
-| Inputs | Trigger: new enrollment or admin request |
-| Processing | Fetch all active FaceDataset records from DB → Load encodings → Update in-memory registry → Log rebuild event |
-| Outputs | `{ knownFaces: N, rebuiltAt: timestamp }` |
+| Description | Endpoint `POST /api/v1/face/train` in Node.js backend triggers Python FastAPI CV service (`POST /api/ml/train`) to retrain ML models, update classifier weights, and sync the in-memory face vector cache. Admin Face Datasets inspector shows only real enrolled student datasets and provides model retraining status. |
+| Inputs | Trigger: Admin button click or post-enrollment event |
+| Processing | Node.js backend POST to CV API `/api/ml/train` with `CV_API_KEY` → CV service loads verified encodings → Trains model → Syncs vector cache → Returns metrics |
+| Outputs | `{ success: true, trainedModels: N, knownFacesCount: N, syncTimestamp: Date }` |
 
 #### FR-22 – Delete Face Dataset
 | Field | Detail |
@@ -506,25 +510,25 @@ Requirements are numbered FR-01 through FR-50, organized by module. Priority: **
 | ID | FR-22 |
 | Title | Remove Student Face Data |
 | Priority | P2 |
-| Description | Admin can delete a student's face dataset (e.g., on account deletion or re-enrollment request). Images are deleted from ImageKit.io and encodings removed from DB. |
+| Description | Admin can delete a student's face dataset. Images are deleted from ImageKit.io, encodings removed from DB, and model retrained. |
 | Inputs | `studentId` |
-| Processing | Delete ImageKit folder/files → Remove FaceDataset document → Trigger model rebuild |
+| Processing | Delete ImageKit folder/files → Remove FaceDataset document → Trigger retrain pipeline |
 | Outputs | `{ message: "Face data deleted", imagesRemoved: N }` |
 
 ---
 
-### Module 6: Attendance Marking
+### Module 6: Attendance Marking & Verification
 
-#### FR-23 – Start Attendance Session
+#### FR-23 – Start Attendance Session (Strict Teacher Scoping)
 | Field | Detail |
 |---|---|
 | ID | FR-23 |
 | Title | Open Attendance Session |
 | Priority | P1 |
-| Description | A teacher starts an attendance session for a specific class, subject, and date/period. The system checks if a session already exists for that slot to prevent duplicates. |
-| Inputs | `subjectId`, `classId`, `date`, `period` (or `timetableSlotId`) |
-| Processing | Validate teacher is assigned to subject → Check no existing session → Create Attendance batch document → Return session ID |
-| Outputs | `{ sessionId, subject, classId, date, period, status: "open" }` |
+| Description | A teacher starts an attendance session for a specific class, subject, and date/period. Strictly enforces that teachers can ONLY initiate sessions for subjects assigned to them by Admin. |
+| Inputs | `subjectId`, `classId`, `date`, `period` |
+| Processing | Validate teacher is assigned to `subjectId` → Check no existing session → Generate QR session token & Geolocation bounds → Create AttendanceSession document → Return session ID |
+| Outputs | `{ sessionId, subject, classId, date, period, qrToken, lat, lng, radius, status: "open" }` |
 
 #### FR-24 – Face Recognition Attendance Marking
 | Field | Detail |
@@ -532,28 +536,33 @@ Requirements are numbered FR-01 through FR-50, organized by module. Priority: **
 | ID | FR-24 |
 | Title | Recognize and Mark Attendance via Face |
 | Priority | P1 |
-| Description | The teacher's webcam captures the classroom. The CV API processes frames, identifies students by face, performs liveness detection, and returns recognized student IDs. The backend marks those students as Present. |
+| Description | Teacher webcam captures classroom feed. CV API detects faces, evaluates liveness, matches against strict teacher-assigned student roster, and backend marks Present. |
 | Inputs | Base64 webcam frame → CV API; `sessionId`, `recognizedStudentIds` → Backend |
-| Processing | CV API: Detect faces → Extract encodings → Compare with known_faces (tolerance 0.5) → Liveness check → Return matched IDs. Backend: Mark Attendance documents Present for matched IDs in session. |
+| Processing | CV API: Detect faces → Extract encodings → Compare with known_faces (tolerance 0.5) → Liveness check → Return matched IDs. Backend: Filter by assigned class roster → Mark Present. |
 | Outputs | `{ recognized: [{ studentId, name, rollNo, confidence }], markedPresent: N }` |
 
-#### FR-25 – Liveness Detection
+#### FR-25 – Student QR Attendance Scanner & Geolocation Verification
 | Field | Detail |
 |---|---|
 | ID | FR-25 |
-| Title | Anti-Spoofing Liveness Check |
+| Title | Student QR Scanner & Geolocation Check-in |
 | Priority | P1 |
-| Description | The CV API must perform liveness detection to prevent attendance fraud via photos or videos. Eye blink detection (EAR – Eye Aspect Ratio) and head movement detection are used. |
-| Inputs | Sequential webcam frames, face landmarks |
-| Processing | Compute Eye Aspect Ratio across frames → Detect blink events → Detect head rotation via 3D pose estimation → If no liveness signals in 3 seconds → reject |
-| Outputs | `{ isLive: boolean, confidence: float, method: "blink/head_movement" }` |
+| Description | Student accesses optical camera QR scanner (`html5-qrcode`) at `/student/qr-scanner`. Checks in via `POST /api/v1/attendance/mark-qr` by providing QR payload + current latitude & longitude. System validates distance against session geolocation radius for proxy prevention. |
+| Inputs | `qrToken`, `sessionId`, `latitude`, `longitude` |
+| Processing | Verify active session & QR token validity → Calculate Haversine distance between student (lat, lng) and session (sessionLat, sessionLng) → If distance ≤ radius (default 50m), mark student Present (`markedBy: "qr_scanner"`) |
+| Outputs | `{ success: true, message: "Attendance marked via QR scanner", status: "Present", distanceMeters: N }` |
+| Error Cases | Student outside geolocation radius → 400 (`INVALID_LOCATION`). Expired QR → 400 (`QR_EXPIRED`). |
 
-#### FR-26 – Manual Attendance Marking
+#### FR-26 – Manual Attendance Marking (Strict Scoping)
 | Field | Detail |
 |---|---|
 | ID | FR-26 |
 | Title | Teacher Manual Attendance Entry |
 | Priority | P1 |
+| Description | Teacher can manually mark students as Present, Absent, or Late. Access is strictly limited to students enrolled in the teacher's assigned subjects and courses. |
+| Inputs | `sessionId`, `studentId`, `status` (Present/Absent/Late) |
+| Processing | Validate teacher assignment to subject & student enrollment → Upsert Attendance document → Log manual override in AuditLog |
+| Outputs | `{ attendance: { studentId, status, markedBy: "manual", timestamp } }` |
 | Description | Teacher can manually mark individual students as Present, Absent, or Late during or after an attendance session. Useful for edge cases where face recognition fails. |
 | Inputs | `sessionId`, `studentId`, `status` (Present/Absent/Late) |
 | Processing | Validate teacher authorization → Upsert Attendance document → Log manual override in AuditLog |
