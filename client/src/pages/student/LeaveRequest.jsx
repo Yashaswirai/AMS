@@ -6,38 +6,35 @@ import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 import Modal from '../../components/common/Modal.jsx';
 
-const SUBJECTS = [
-  { code: 'CS-301', name: 'Data Structures & Algorithms' },
-  { code: 'CS-302', name: 'Database Management Systems' },
-  { code: 'CS-303', name: 'Computer Networks' }
-];
-
-const MOCK_LEAVE_HISTORY = [
-  { id: 1, subject: 'CS-301', startDate: '2026-07-10', endDate: '2026-07-12', reason: 'Fever check-up', status: 'approved' },
-  { id: 2, subject: 'CS-302', startDate: '2026-07-02', endDate: '2026-07-02', reason: 'Inter-college technical competition representing university', status: 'approved' },
-  { id: 3, subject: 'CS-303', startDate: '2026-07-18', endDate: '2026-07-19', reason: 'Family engagement', status: 'pending' }
-];
-
 function LeaveRequest() {
   const [history, setHistory] = useState([]);
+  const [subjectsList, setSubjectsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
 
   // Form states
-  const [subject, setSubject] = useState('CS-301');
+  const [subject, setSubject] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
-  const [file, setFile] = useState(null);
 
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/student/leaves');
-      setHistory(res.data.leaves || res.data);
+      const [leavesRes, subsRes] = await Promise.all([
+        api.get('/leave').catch(() => ({ data: [] })),
+        api.get('/subjects').catch(() => ({ data: [] }))
+      ]);
+      const rawLeaves = leavesRes.data?.data || leavesRes.data?.leaves || leavesRes.data || [];
+      const rawSubs = subsRes.data?.data || subsRes.data?.subjects || subsRes.data || [];
+      
+      setHistory(Array.isArray(rawLeaves) ? rawLeaves : []);
+      setSubjectsList(Array.isArray(rawSubs) ? rawSubs : []);
+      if (rawSubs.length > 0) setSubject(rawSubs[0].code || rawSubs[0].name);
     } catch (err) {
-      console.warn('API leave history error, using mock history logs:', err);
-      setHistory(MOCK_LEAVE_HISTORY);
+      console.warn('API error fetching leaves:', err);
+      setHistory([]);
+      setSubjectsList([]);
     } finally {
       setLoading(false);
     }
@@ -132,7 +129,7 @@ function LeaveRequest() {
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-subtle)]">Course Class</label>
             <select className="input-field" value={subject} onChange={(e) => setSubject(e.target.value)}>
-              {SUBJECTS.map(s => <option key={s.code} value={s.code}>{s.code} - {s.name}</option>)}
+              {subjectsList.map(s => <option key={s._id || s.code} value={s.code || s.name}>{s.code ? `${s.code} - ${s.name}` : s.name}</option>)}
             </select>
           </div>
 

@@ -5,14 +5,6 @@ import api from '../../services/api.js';
 import DataTable from '../../components/common/DataTable.jsx';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 
-const MOCK_STUDENT_LOGS = [
-  { id: 1, date: '2026-07-16', subject: 'CS-301 Data Structures', time: '09:05 AM', status: 'present', method: 'Face Recognition' },
-  { id: 2, date: '2026-07-15', subject: 'CS-302 Database Management', time: '11:10 AM', status: 'present', method: 'QR Check-in' },
-  { id: 3, date: '2026-07-14', subject: 'CS-303 Computer Networks', time: '—', status: 'absent', method: 'None' },
-  { id: 4, date: '2026-07-13', subject: 'CS-304 Discrete Mathematics', time: '02:05 PM', status: 'late', method: 'Manual' },
-  { id: 5, date: '2026-07-12', subject: 'CS-301 Data Structures', time: '09:02 AM', status: 'present', method: 'Face Recognition' },
-];
-
 function StudentAttendanceHistory() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,11 +14,20 @@ function StudentAttendanceHistory() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/student/attendance-logs');
-      setLogs(res.data.logs || res.data);
+      const res = await api.get('/attendance/history?studentId=me');
+      const raw = res.data?.data || res.data?.records || res.data?.logs || res.data || [];
+      const formatted = raw.map(item => ({
+        id: item._id || item.id,
+        date: item.date ? new Date(item.date).toLocaleDateString() : 'N/A',
+        subject: item.subject?.name ? `${item.subject.code || ''} ${item.subject.name}` : 'Subject',
+        time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—',
+        status: item.status || 'absent',
+        method: item.method ? item.method.toUpperCase() : 'Manual'
+      }));
+      setLogs(formatted);
     } catch (err) {
-      console.warn('API error fetching student attendance history, using mock logs:', err);
-      setLogs(MOCK_STUDENT_LOGS);
+      console.warn('API error fetching student attendance history:', err);
+      setLogs([]);
     } finally {
       setLoading(false);
     }

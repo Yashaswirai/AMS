@@ -12,6 +12,8 @@ import StudentLayout from './layouts/StudentLayout.jsx';
 const Login = lazy(() => import('./pages/auth/Login.jsx'));
 const Register = lazy(() => import('./pages/auth/Register.jsx'));
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword.jsx'));
+const ResetPassword = lazy(() => import('./pages/auth/ResetPassword.jsx'));
+const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail.jsx'));
 
 // Admin pages
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard.jsx'));
@@ -60,6 +62,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
           </Route>
 
           {/* Admin routes */}

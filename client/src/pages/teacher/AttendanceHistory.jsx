@@ -7,18 +7,9 @@ import DataTable from '../../components/common/DataTable.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 
-const MOCK_HISTORY = [
-  { id: '1', date: '2026-07-16', rollNumber: 'CS22B1001', name: 'Ravi Kumar', subjectCode: 'CS-301', status: 'present', method: 'Face Recognition' },
-  { id: '2', date: '2026-07-16', rollNumber: 'CS22B1002', name: 'Sarah Miller', rollNumberVal: 'CS22B1002', subjectCode: 'CS-301', status: 'present', method: 'Face Recognition' },
-  { id: '3', date: '2026-07-15', rollNumber: 'CS22B1001', name: 'Ravi Kumar', subjectCode: 'CS-301', status: 'present', method: 'QR Check-in' },
-  { id: '4', date: '2026-07-15', rollNumber: 'CS22B1002', name: 'Sarah Miller', subjectCode: 'CS-302', status: 'late', method: 'Manual' },
-  { id: '5', date: '2026-07-14', rollNumber: 'EC23B2001', name: 'Aarav Sharma', subjectCode: 'CS-301', status: 'absent', method: 'None' },
-];
-
-const SUBJECTS = ['CS-301', 'CS-302', 'CS-501'];
-
 function AttendanceHistory() {
   const [history, setHistory] = useState([]);
+  const [subjectsList, setSubjectsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
@@ -29,14 +20,31 @@ function AttendanceHistory() {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [editStatus, setEditStatus] = useState('present');
 
+  useEffect(() => {
+    api.get('/subjects').then(res => {
+      const raw = res.data?.data || res.data?.subjects || res.data || [];
+      setSubjectsList(raw);
+    }).catch(() => {});
+  }, []);
+
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/attendance/history?subjectCode=${subjectFilter}&date=${dateFilter}`);
-      setHistory(res.data.history || res.data);
+      const res = await api.get(`/attendance/history?subjectId=${subjectFilter}&date=${dateFilter}`);
+      const raw = res.data?.data || res.data?.records || res.data?.history || res.data || [];
+      const formatted = Array.isArray(raw) ? raw.map(h => ({
+        id: h._id || h.id,
+        date: h.date ? new Date(h.date).toLocaleDateString() : 'N/A',
+        rollNumber: h.student?.rollNumber || 'CS000',
+        name: h.student?.user?.name || h.student?.name || h.name || 'Student',
+        subjectCode: h.subject?.code || h.subjectCode || 'SUB',
+        status: h.status || 'absent',
+        method: h.method ? h.method.toUpperCase() : 'Manual'
+      })) : [];
+      setHistory(formatted);
     } catch (err) {
-      console.warn('API history error, using mock logs:', err);
-      setHistory(MOCK_HISTORY);
+      console.warn('API history error:', err);
+      setHistory([]);
     } finally {
       setLoading(false);
     }
@@ -121,7 +129,7 @@ function AttendanceHistory() {
 
         <select className="input-field md:w-52" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
           <option value="">All Subjects</option>
-          {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+          {subjectsList.map(s => <option key={s._id || s.id} value={s._id || s.id}>{s.code || s.name}</option>)}
         </select>
 
         <div className="relative md:w-52">

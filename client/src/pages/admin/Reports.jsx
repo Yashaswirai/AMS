@@ -5,31 +5,23 @@ import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 import DataTable from '../../components/common/DataTable.jsx';
 
-const MOCK_REPORT_PREVIEW = [
-  { studentId: '201', name: 'Ravi Kumar', rollNumber: 'CS22B1001', course: 'B.Tech Computer Science', presentDays: 14, totalDays: 16, percentage: 87.5 },
-  { studentId: '202', name: 'Sarah Miller', rollNumber: 'CS22B1002', course: 'B.Tech Computer Science', presentDays: 15, totalDays: 16, percentage: 93.8 },
-  { studentId: '203', name: 'Aarav Sharma', rollNumber: 'EC23B2001', course: 'B.Tech Electronics', presentDays: 11, totalDays: 16, percentage: 68.8 },
-  { studentId: '204', name: 'Emily Davis', rollNumber: 'ME21B3005', course: 'B.Tech Mechanical', presentDays: 13, totalDays: 16, percentage: 81.3 },
-  { studentId: '205', name: 'Vijay Patel', rollNumber: 'CE22B4009', course: 'B.Tech Civil', presentDays: 10, totalDays: 16, percentage: 62.5 },
-];
-
-const COURSES = [
-  { id: '1', name: 'B.Tech Computer Science' },
-  { id: '2', name: 'M.Tech Software Engineering' },
-  { id: '3', name: 'B.Tech Electronics & Comm.' },
-  { id: '4', name: 'B.Tech Mechanical Eng.' },
-  { id: '5', name: 'B.Tech Civil Eng.' },
-];
-
 function Reports() {
+  const [coursesList, setCoursesList] = useState([]);
   const [reportType, setReportType] = useState('summary');
   const [course, setCourse] = useState('');
   const [semester, setSemester] = useState('');
-  const [startDate, setStartDate] = useState('2026-07-01');
-  const [endDate, setEndDate] = useState('2026-07-16');
+  const [startDate, setStartDate] = useState(new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [format, setFormat] = useState('pdf');
   const [previewData, setPreviewData] = useState([]);
   const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    api.get('/courses').then(res => {
+      const raw = res.data?.data || res.data?.courses || res.data || [];
+      setCoursesList(raw);
+    }).catch(() => {});
+  }, []);
 
   const handleGenerate = async (e) => {
     e.preventDefault();
@@ -37,16 +29,14 @@ function Reports() {
     const toastId = toast.loading('Querying attendance records...');
     
     try {
-      await api.get(`/reports/generate?type=${reportType}&course=${course}&startDate=${startDate}&endDate=${endDate}`);
-      // Simulate API return
-      setPreviewData(MOCK_REPORT_PREVIEW);
+      const res = await api.get(`/reports/generate?type=${reportType}&course=${course}&startDate=${startDate}&endDate=${endDate}`);
+      const data = res.data?.data || res.data?.records || res.data || [];
+      setPreviewData(Array.isArray(data) ? data : []);
       toast.success('Report data compiled!', { id: toastId });
     } catch (err) {
-      console.warn('API report generation failed, fallback mock preview:', err);
-      // Simulate network wait
-      await new Promise(r => setTimeout(r, 1200));
-      setPreviewData(MOCK_REPORT_PREVIEW);
-      toast.success('Report data compiled! (local database simulation)', { id: toastId });
+      console.warn('API report generation failed:', err);
+      setPreviewData([]);
+      toast.error('No matching records found in database', { id: toastId });
     } finally {
       setGenerating(false);
     }
@@ -123,8 +113,8 @@ function Reports() {
               <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-subtle)]">Filter Course</label>
               <select className="input-field" value={course} onChange={(e) => setCourse(e.target.value)}>
                 <option value="">All Courses</option>
-                {COURSES.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                {coursesList.map(c => (
+                  <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>
                 ))}
               </select>
             </div>

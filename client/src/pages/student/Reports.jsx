@@ -5,38 +5,66 @@ import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 import DataTable from '../../components/common/DataTable.jsx';
 
-const MOCK_STUDENT_REPORT = [
-  { subjectCode: 'CS-301', subjectName: 'Data Structures & Algorithms', present: 12, total: 13, percentage: 92.3 },
-  { subjectCode: 'CS-302', subjectName: 'Database Management Systems', present: 11, total: 13, percentage: 84.6 },
-  { subjectCode: 'CS-303', subjectName: 'Computer Networks', present: 10, total: 14, percentage: 71.4 },
-  { subjectCode: 'CS-304', subjectName: 'Discrete Mathematics', present: 8, total: 9, percentage: 88.9 },
-];
-
 function StudentReports() {
   const [reportType, setReportType] = useState('summary');
   const [downloading, setDownloading] = useState(false);
+  const [reportData, setReportData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReport = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get('/attendance/stats/me');
+        const data = res.data?.data || res.data;
+        const subs = data?.subjects || [];
+        const formatted = subs.map(s => ({
+          subjectCode: s.subjectCode || 'SUB',
+          subjectName: s.subjectName || 'Subject',
+          present: s.presentClasses || 0,
+          total: s.totalClasses || 0,
+          percentage: s.percentage || 0
+        }));
+        setReportData(formatted);
+      } catch (err) {
+        console.warn('API error fetching student report data:', err);
+        setReportData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReport();
+  }, []);
 
   const handleDownload = async () => {
     setDownloading(true);
     const toastId = toast.loading('Compiling attendance file report...');
     try {
-      await api.get(`/student/report/download?type=${reportType}`);
+      const res = await api.get(`/reports/download?type=${reportType}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `AMS_Student_Report_${reportType}.pdf`);
+      document.body.appendChild(link);
+      link.click();
       toast.success('Report downloaded successfully!', { id: toastId });
     } catch (err) {
-      console.warn('API error exporting student report, downloading local mock text file:', err);
-      // Simulate file download
-      await new Promise(r => setTimeout(r, 1200));
-      
-      const fileData = `AMS Attendance Report\n===================\nReport Type: ${reportType.toUpperCase()}\nGenerated On: ${new Date().toLocaleDateString()}\n\n` +
-        MOCK_STUDENT_REPORT.map(r => `${r.subjectCode} - ${r.subjectName}: ${r.present}/${r.total} (${r.percentage}%)`).join('\n');
-      
-      const blob = new Blob([fileData], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `AMS_Student_Report_${reportType}.txt`;
-      a.click();
-      toast.success('Report downloaded successfully (local)!', { id: toastId });
+      console.warn('API error downloading report:', err);
+      if (reportData.length === 0) {
+        toast.error('No attendance records available to export', { id: toastId });
+      } else {
+        const fileData = `AMS Attendance Report\n===================\nReport Type: ${reportType.toUpperCase()}\nGenerated On: ${new Date().toLocaleDateString()}\n\n` +
+          reportData.map(r => `${r.subjectCode} - ${r.subjectName}: ${r.present}/${r.total} (${r.percentage}%)`).join('\n');
+        
+        const blob = new Blob([fileData], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AMS_Student_Report_${reportType}.txt`;
+        a.click();
+        toast.success('Report downloaded successfully!', { id: toastId });
+      }
     } finally {
       setDownloading(false);
     }
@@ -94,7 +122,7 @@ function StudentReports() {
         {/* Preview Card */}
         <div className="lg:col-span-2 glass-card rounded-3xl p-6 space-y-4">
           <h3 className="font-bold text-[var(--text)] border-b border-[var(--border)] pb-3">Term Roster Summary</h3>
-          <DataTable columns={columns} data={MOCK_STUDENT_REPORT} />
+          <DataTable columns={columns} data={reportData} />
         </div>
       </div>
     </div>

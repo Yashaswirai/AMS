@@ -5,12 +5,6 @@ import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 
-const MOCK_LEAVES = [
-  { id: '1', studentId: '201', name: 'Ravi Kumar', rollNumber: 'CS22B1001', subjectCode: 'CS-301', startDate: '2026-07-17', endDate: '2026-07-19', reason: 'Suffering from severe viral fever. Doctor advised 3 days rest.', medicalCertUrl: '#', status: 'pending' },
-  { id: '2', studentId: '203', name: 'Aarav Sharma', rollNumber: 'EC23B2001', subjectCode: 'CS-301', startDate: '2026-07-18', endDate: '2026-07-18', reason: 'Representing university in national hackathon competition.', medicalCertUrl: null, status: 'pending' },
-  { id: '3', studentId: '204', name: 'Emily Davis', rollNumber: 'ME21B3005', subjectCode: 'CS-501', startDate: '2026-07-20', endDate: '2026-07-22', reason: 'Family emergency, traveling to hometown.', medicalCertUrl: null, status: 'pending' }
-];
-
 function LeaveApproval() {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,13 +12,24 @@ function LeaveApproval() {
   const fetchLeaves = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/leaves/pending');
-      setLeaves(res.data.leaves || res.data);
+      const res = await api.get('/leave');
+      const raw = res.data?.data || res.data?.leaves || res.data || [];
+      const formatted = Array.isArray(raw) ? raw.map(l => ({
+        id: l._id || l.id,
+        studentId: l.student?._id || l.student || '',
+        name: l.student?.user?.name || l.student?.name || 'Student',
+        rollNumber: l.student?.rollNumber || 'CS000',
+        subjectCode: l.subject?.code || l.subjectCode || 'SUB',
+        startDate: l.startDate ? new Date(l.startDate).toISOString().split('T')[0] : 'N/A',
+        endDate: l.endDate ? new Date(l.endDate).toISOString().split('T')[0] : 'N/A',
+        reason: l.reason || '',
+        medicalCertUrl: l.attachmentUrl || null,
+        status: l.status || 'pending'
+      })) : [];
+      setLeaves(formatted);
     } catch (err) {
-      console.warn('API leaves error, using mock data:', err);
-      // Simulate API load time
-      await new Promise(r => setTimeout(r, 600));
-      setLeaves(MOCK_LEAVES);
+      console.warn('API leaves error:', err);
+      setLeaves([]);
     } finally {
       setLoading(false);
     }

@@ -5,19 +5,21 @@ import { FiRefreshCw, FiPlay, FiSquare, FiUsers, FiClock, FiShield } from 'react
 import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 
-const SUBJECTS = [
-  { code: 'CS-301', name: 'Data Structures & Algorithms' },
-  { code: 'CS-302', name: 'Database Management Systems' },
-  { code: 'CS-501', name: 'Artificial Intelligence' },
-];
-
 function QRAttendance() {
+  const [subjectsList, setSubjectsList] = useState([]);
   const [subjectCode, setSubjectCode] = useState('');
   const [period, setPeriod] = useState('1');
   const [isActive, setIsActive] = useState(false);
   const [qrToken, setQrToken] = useState('');
   const [timeLeft, setTimeLeft] = useState(15);
   const [scannedStudents, setScannedStudents] = useState([]);
+
+  useEffect(() => {
+    api.get('/subjects').then(res => {
+      const raw = res.data?.data || res.data?.subjects || res.data || [];
+      setSubjectsList(raw);
+    }).catch(() => {});
+  }, []);
 
   // Generate secure rotation token
   const generateToken = () => {
@@ -35,7 +37,7 @@ function QRAttendance() {
     setTimeLeft(15);
   };
 
-  // Rotation timer
+  // Rotation timer - strictly generates new QR token without fake automatic scans
   useEffect(() => {
     let timer;
     if (isActive) {
@@ -43,7 +45,6 @@ function QRAttendance() {
         setTimeLeft(prev => {
           if (prev <= 1) {
             generateToken();
-            simulateNewScan(); // mock real-time students scanning
             return 15;
           }
           return prev - 1;
@@ -52,25 +53,6 @@ function QRAttendance() {
     }
     return () => clearInterval(timer);
   }, [isActive, subjectCode, period]);
-
-  const simulateNewScan = () => {
-    const names = ['Aarav Sharma', 'Sarah Miller', 'Ravi Kumar', 'Emily Davis', 'Vijay Patel'];
-    const rolls = ['EC23B2001', 'CS22B1002', 'CS22B1001', 'ME21B3005', 'CE22B4009'];
-    const randomIndex = Math.floor(Math.random() * names.length);
-    
-    // Add scanned student if not already present
-    setScannedStudents(prev => {
-      const exists = prev.some(s => s.rollNumber === rolls[randomIndex]);
-      if (!exists && prev.length < 4) {
-        return [...prev, {
-          name: names[randomIndex],
-          rollNumber: rolls[randomIndex],
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        }];
-      }
-      return prev;
-    });
-  };
 
   const handleStart = () => {
     if (!subjectCode) {
@@ -112,8 +94,8 @@ function QRAttendance() {
                 disabled={isActive}
               >
                 <option value="">Select Class...</option>
-                {SUBJECTS.map(s => (
-                  <option key={s.code} value={s.code}>{s.code} - {s.name}</option>
+                {subjectsList.map(s => (
+                  <option key={s._id || s.code} value={s.code || s._id}>{s.code ? `${s.code} - ${s.name}` : s.name}</option>
                 ))}
               </select>
             </div>

@@ -6,29 +6,6 @@ import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal.jsx';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 
-const MOCK_TIMETABLE = [
-  { id: 1, courseId: '1', semester: 3, day: 'Monday', timeSlot: '09:00 - 10:00', subjectCode: 'CS-301', subjectName: 'Data Structures', teacherName: 'Dr. Alan Turing', room: 'LHC-101' },
-  { id: 2, courseId: '1', semester: 3, day: 'Monday', timeSlot: '11:00 - 12:00', subjectCode: 'CS-302', subjectName: 'Database Systems', teacherName: 'Dr. Grace Hopper', room: 'LHC-101' },
-  { id: 3, courseId: '1', semester: 3, day: 'Tuesday', timeSlot: '10:00 - 11:00', subjectCode: 'CS-301', subjectName: 'Data Structures', teacherName: 'Dr. Alan Turing', room: 'LHC-102' },
-  { id: 4, courseId: '1', semester: 3, day: 'Wednesday', timeSlot: '09:00 - 10:00', subjectCode: 'CS-302', subjectName: 'Database Systems', teacherName: 'Dr. Grace Hopper', room: 'LHC-101' },
-  { id: 5, courseId: '1', semester: 3, day: 'Thursday', timeSlot: '14:00 - 15:00', subjectCode: 'CS-501', subjectName: 'Artificial Intelligence', teacherName: 'Dr. Geoffrey Hinton', room: 'AI-Lab' },
-  { id: 6, courseId: '1', semester: 3, day: 'Friday', timeSlot: '11:00 - 12:00', subjectCode: 'CS-501', subjectName: 'Artificial Intelligence', teacherName: 'Dr. Geoffrey Hinton', room: 'AI-Lab' },
-];
-
-const COURSES = [
-  { id: '1', name: 'B.Tech Computer Science' },
-  { id: '2', name: 'M.Tech Software Engineering' },
-  { id: '3', name: 'B.Tech Electronics & Comm.' },
-  { id: '4', name: 'B.Tech Mechanical Eng.' },
-  { id: '5', name: 'B.Tech Civil Eng.' },
-];
-
-const SUBJECTS = [
-  { code: 'CS-301', name: 'Data Structures & Algorithms', teacher: 'Dr. Alan Turing' },
-  { code: 'CS-302', name: 'Database Management Systems', teacher: 'Dr. Grace Hopper' },
-  { code: 'CS-501', name: 'Artificial Intelligence', teacher: 'Dr. Geoffrey Hinton' },
-];
-
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const TIMESLOTS = [
   '09:00 - 10:00',
@@ -41,10 +18,10 @@ const TIMESLOTS = [
 
 function Timetable() {
   const [timetable, setTimetable] = useState([]);
-  const [courses, setCourses] = useState(COURSES);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [courseFilter, setCourseFilter] = useState('1');
-  const [semesterFilter, setSemesterFilter] = useState(3);
+  const [courseFilter, setCourseFilter] = useState('');
+  const [semesterFilter, setSemesterFilter] = useState(1);
 
   // Modals
   const [modalOpen, setModalOpen] = useState(false);
@@ -84,11 +61,15 @@ function Timetable() {
         room: t.room || 'LHC-101'
       }));
 
-      setTimetable(normTable.length > 0 ? normTable : MOCK_TIMETABLE);
-      if (normCourses.length > 0) setCourses(normCourses);
+      setTimetable(normTable);
+      setCourses(normCourses);
+      if (!courseFilter && normCourses.length > 0) {
+        setCourseFilter(normCourses[0].id);
+      }
     } catch (err) {
-      console.warn('API error, using mock data:', err);
-      setTimetable(MOCK_TIMETABLE);
+      console.warn('API error fetching timetable:', err);
+      setTimetable([]);
+      setCourses([]);
     } finally {
       setLoading(false);
     }

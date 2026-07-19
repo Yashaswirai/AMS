@@ -7,25 +7,11 @@ import Modal from '../../components/common/Modal.jsx';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 import DataTable from '../../components/common/DataTable.jsx';
 
-const MOCK_COURSES = [
-  { id: 1, name: 'B.Tech Computer Science', code: 'BTECH-CS', departmentId: 'cs', departmentName: 'Computer Science', duration: '4 Years', semesterCount: 8 },
-  { id: 2, name: 'M.Tech Software Engineering', code: 'MTECH-SE', departmentId: 'cs', departmentName: 'Computer Science', duration: '2 Years', semesterCount: 4 },
-  { id: 3, name: 'B.Tech Electronics & Communication', code: 'BTECH-EC', departmentId: 'ec', departmentName: 'Electronics', duration: '4 Years', semesterCount: 8 },
-  { id: 4, name: 'B.Tech Mechanical Engineering', code: 'BTECH-ME', departmentId: 'me', departmentName: 'Mechanical', duration: '4 Years', semesterCount: 8 },
-  { id: 5, name: 'B.Tech Civil Engineering', code: 'BTECH-CE', departmentId: 'ce', departmentName: 'Civil', duration: '4 Years', semesterCount: 8 },
-];
-
-const DEPARTMENTS = [
-  { id: 'cs', name: 'Computer Science' },
-  { id: 'ec', name: 'Electronics' },
-  { id: 'me', name: 'Mechanical' },
-  { id: 'ce', name: 'Civil' },
-  { id: 'ch', name: 'Chemical' },
-];
+import DataTable from '../../components/common/DataTable.jsx';
 
 function Courses() {
   const [courses, setCourses] = useState([]);
-  const [departments, setDepartments] = useState(DEPARTMENTS);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
@@ -63,11 +49,12 @@ function Courses() {
         semesterCount: c.totalSemesters || c.semesterCount || 8
       }));
 
-      setCourses(normCourses.length > 0 ? normCourses : MOCK_COURSES);
-      setDepartments(normDepts.length > 0 ? normDepts : DEPARTMENTS);
+      setCourses(normCourses);
+      setDepartments(normDepts);
     } catch (err) {
-      console.warn('API error, using mock data:', err);
-      setCourses(MOCK_COURSES);
+      console.warn('API error fetching courses:', err);
+      setCourses([]);
+      setDepartments([]);
     } finally {
       setLoading(false);
     }

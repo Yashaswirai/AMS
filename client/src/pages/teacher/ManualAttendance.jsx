@@ -6,38 +6,39 @@ import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 import DataTable from '../../components/common/DataTable.jsx';
 
-const SUBJECTS = [
-  { code: 'CS-301', name: 'Data Structures & Algorithms', courseId: '1' },
-  { code: 'CS-302', name: 'Database Management Systems', courseId: '1' },
-  { code: 'CS-501', name: 'Artificial Intelligence', courseId: '1' },
-];
-
-const MOCK_ROSTER = [
-  { studentId: '201', name: 'Ravi Kumar', rollNumber: 'CS22B1001', status: 'present' },
-  { studentId: '202', name: 'Sarah Miller', rollNumber: 'CS22B1002', status: 'present' },
-  { studentId: '203', name: 'Aarav Sharma', rollNumber: 'EC23B2001', status: 'absent' },
-  { studentId: '204', name: 'Emily Davis', rollNumber: 'ME21B3005', status: 'present' },
-  { studentId: '205', name: 'Vijay Patel', rollNumber: 'CE22B4009', status: 'absent' },
-];
-
 function ManualAttendance() {
-  const [subjectCode, setSubjectCode] = useState('CS-301');
+  const [subjectsList, setSubjectsList] = useState([]);
+  const [subjectCode, setSubjectCode] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [period, setPeriod] = useState('1');
   const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
 
+  useEffect(() => {
+    api.get('/subjects').then(res => {
+      const raw = res.data?.data || res.data?.subjects || res.data || [];
+      setSubjectsList(raw);
+      if (raw.length > 0) setSubjectCode(raw[0].code || raw[0]._id);
+    }).catch(() => {});
+  }, []);
+
   const fetchRoster = async () => {
+    if (!subjectCode) return;
     setLoading(true);
     try {
       const res = await api.get(`/attendance/roster?subjectCode=${subjectCode}&date=${date}`);
-      setRoster(res.data.roster || res.data);
+      const raw = res.data?.data || res.data?.roster || res.data || [];
+      const formatted = Array.isArray(raw) ? raw.map(s => ({
+        studentId: s.studentId || s._id || s.id,
+        name: s.name || s.user?.name || 'Student',
+        rollNumber: s.rollNumber || 'CS000',
+        status: s.status || 'present'
+      })) : [];
+      setRoster(formatted);
     } catch (err) {
-      console.warn('API roster error, using mock roster list:', err);
-      // Simulating database fetch
-      await new Promise(r => setTimeout(r, 600));
-      setRoster(MOCK_ROSTER);
+      console.warn('API roster error:', err);
+      setRoster([]);
     } finally {
       setLoading(false);
     }
@@ -139,8 +140,8 @@ function ManualAttendance() {
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-[var(--text-subtle)]">Course Subject</label>
           <select className="input-field" value={subjectCode} onChange={(e) => setSubjectCode(e.target.value)}>
-            {SUBJECTS.map(s => (
-              <option key={s.code} value={s.code}>{s.code} - {s.name}</option>
+            {subjectsList.map(s => (
+              <option key={s._id || s.code} value={s.code || s._id}>{s.code ? `${s.code} - ${s.name}` : s.name}</option>
             ))}
           </select>
         </div>

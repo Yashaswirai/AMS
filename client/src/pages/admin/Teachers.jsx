@@ -7,25 +7,11 @@ import Modal from '../../components/common/Modal.jsx';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 import DataTable from '../../components/common/DataTable.jsx';
 
-const MOCK_TEACHERS = [
-  { id: '101', name: 'Dr. Alan Turing', email: 'turing@ams.edu', phone: '+91 9999988888', departmentId: 'cs', departmentName: 'Computer Science', faceStatus: 'registered', subjectsCount: 3, registrationDate: '2026-02-12' },
-  { id: '102', name: 'Dr. Grace Hopper', email: 'hopper@ams.edu', phone: '+91 9999977777', departmentId: 'cs', departmentName: 'Computer Science', faceStatus: 'registered', subjectsCount: 2, registrationDate: '2026-03-01' },
-  { id: '103', name: 'Dr. Geoffrey Hinton', email: 'hinton@ams.edu', phone: '+91 9999966666', departmentId: 'cs', departmentName: 'Computer Science', faceStatus: 'pending', subjectsCount: 1, registrationDate: null },
-  { id: '104', name: 'Prof. Claude Shannon', email: 'shannon@ams.edu', phone: '+91 9999955555', departmentId: 'ec', departmentName: 'Electronics', faceStatus: 'registered', subjectsCount: 2, registrationDate: '2026-01-20' },
-  { id: '105', name: 'Prof. Nikola Tesla', email: 'tesla@ams.edu', phone: '+91 9999944444', departmentId: 'me', departmentName: 'Mechanical', faceStatus: 'pending', subjectsCount: 2, registrationDate: null },
-];
-
-const DEPARTMENTS = [
-  { id: 'cs', name: 'Computer Science' },
-  { id: 'ec', name: 'Electronics' },
-  { id: 'me', name: 'Mechanical' },
-  { id: 'ce', name: 'Civil' },
-  { id: 'ch', name: 'Chemical' },
-];
+import DataTable from '../../components/common/DataTable.jsx';
 
 function Teachers() {
   const [teachers, setTeachers] = useState([]);
-  const [departments, setDepartments] = useState(DEPARTMENTS);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
@@ -73,11 +59,12 @@ function Teachers() {
         registrationDate: t.createdAt ? new Date(t.createdAt).toISOString().split('T')[0] : '—'
       }));
 
-      setTeachers(normTeachers.length > 0 ? normTeachers : MOCK_TEACHERS);
-      setDepartments(normDepts.length > 0 ? normDepts : DEPARTMENTS);
+      setTeachers(normTeachers);
+      setDepartments(normDepts);
     } catch (err) {
-      console.warn('API error, using mock data:', err);
-      setTeachers(MOCK_TEACHERS);
+      console.warn('API error fetching teachers:', err);
+      setTeachers([]);
+      setDepartments([]);
     } finally {
       setLoading(false);
     }

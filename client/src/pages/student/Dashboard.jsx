@@ -5,23 +5,66 @@ import api from '../../services/api.js';
 import StatCard from '../../components/common/StatCard.jsx';
 import AttendanceCalendar from '../../components/attendance/AttendanceCalendar.jsx';
 
-const MOCK_STUDENT_STATS = {
-  overallPercentage: 84.6,
-  totalClasses: 48,
-  attendedClasses: 41,
-  absentClasses: 7,
-  subjects: [
-    { code: 'CS-301', name: 'Data Structures & Algorithms', percentage: 92, classesAttended: 12, classesTotal: 13 },
-    { code: 'CS-302', name: 'Database Management Systems', percentage: 84, classesAttended: 11, classesTotal: 13 },
-    { code: 'CS-303', name: 'Computer Networks', percentage: 71, classesAttended: 10, classesTotal: 14 },
-    { code: 'CS-304', name: 'Discrete Mathematics', percentage: 88, classesAttended: 8, classesTotal: 9 }
-  ],
-  aiInsight: 'Your overall attendance is at 84.6%. You are 1 class away from dropping below 75% in CS-303 (Computer Networks). Attendance in CS-303 on Fridays has been low; try not to skip the upcoming lecture on 17th July to avoid risk.'
-};
-
 function StudentDashboard() {
-  const [stats, setStats] = useState(MOCK_STUDENT_STATS);
-  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({
+    overallPercentage: 0,
+    totalClasses: 0,
+    attendedClasses: 0,
+    absentClasses: 0,
+    subjects: [],
+    aiInsight: 'Welcome to FRAMS! You currently have no logged attendance records. Attend classes to start building your academic attendance profile.'
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStudentStats = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get('/attendance/stats/me');
+        const data = res.data?.data || res.data;
+        if (data && data.overall) {
+          const overallPct = data.overall.percentage || 0;
+          const total = data.overall.total || 0;
+          const present = data.overall.present || 0;
+          const absent = total - present;
+
+          const subjectsList = (data.subjects || []).map(s => ({
+            code: s.subjectCode || 'SUB',
+            name: s.subjectName || 'Subject',
+            percentage: s.percentage || 0,
+            classesAttended: s.presentClasses || 0,
+            classesTotal: s.totalClasses || 0,
+          }));
+
+          let insight = 'Your attendance records are up to date.';
+          if (total === 0) {
+            insight = 'Welcome to FRAMS! You currently have no logged attendance records. Attend classes to start building your academic attendance profile.';
+          } else if (overallPct >= 85) {
+            insight = `Great job! Your attendance rate is ${overallPct}%. Keep up the good work across all your enrolled courses.`;
+          } else if (overallPct >= 75) {
+            insight = `Your attendance rate is ${overallPct}%. Stay consistent to avoid falling below the mandatory 75% threshold.`;
+          } else {
+            insight = `Warning: Your attendance rate is ${overallPct}%, which is below the 75% threshold. Please attend upcoming lectures to raise your compliance score.`;
+          }
+
+          setStats({
+            overallPercentage: overallPct,
+            totalClasses: total,
+            attendedClasses: present,
+            absentClasses: absent > 0 ? absent : 0,
+            subjects: subjectsList,
+            aiInsight: insight,
+          });
+        }
+      } catch (err) {
+        console.warn('Could not fetch student stats from API:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudentStats();
+  }, []);
 
   // Compute Circular Stroke details
   const radius = 60;
@@ -110,31 +153,37 @@ function StudentDashboard() {
         <div className="xl:col-span-2 glass-card rounded-3xl p-6 space-y-5">
           <h3 className="font-bold text-[var(--text)] border-b border-[var(--border)] pb-3">Course Attendance Progress</h3>
           <div className="space-y-4">
-            {stats.subjects.map((sub, i) => (
-              <div key={i} className="space-y-1.5">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-[var(--text)]">{sub.code} - {sub.name}</span>
-                  <span className="font-bold" style={{ color: getPercentageColor(sub.percentage) }}>
-                    {sub.percentage}% ({sub.classesAttended}/{sub.classesTotal})
-                  </span>
-                </div>
-                {/* Progress bar */}
-                <div className="h-2 rounded-full bg-[var(--border)] overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${sub.percentage}%`,
-                      backgroundColor: getPercentageColor(sub.percentage)
-                    }}
-                  />
-                </div>
-                {sub.percentage < 75 && (
-                  <p className="text-[10px] text-red-400 flex items-center gap-1 font-semibold">
-                    <RiAlertLine /> Critical: At-Risk. Exemptions or additional check-ins required to reach compliance.
-                  </p>
-                )}
+            {stats.subjects.length === 0 ? (
+              <div className="text-center py-8 text-xs text-[var(--text-muted)]">
+                No course attendance logged yet. Attendance progress will appear here once classes are conducted and marked.
               </div>
-            ))}
+            ) : (
+              stats.subjects.map((sub, i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-[var(--text)]">{sub.code} - {sub.name}</span>
+                    <span className="font-bold" style={{ color: getPercentageColor(sub.percentage) }}>
+                      {sub.percentage}% ({sub.classesAttended}/{sub.classesTotal})
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="h-2 rounded-full bg-[var(--border)] overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${sub.percentage}%`,
+                        backgroundColor: getPercentageColor(sub.percentage)
+                      }}
+                    />
+                  </div>
+                  {sub.percentage < 75 && (
+                    <p className="text-[10px] text-red-400 flex items-center gap-1 font-semibold">
+                      <RiAlertLine /> Critical: At-Risk. Exemptions or additional check-ins required to reach compliance.
+                    </p>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
 

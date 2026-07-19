@@ -7,25 +7,11 @@ import Modal from '../../components/common/Modal.jsx';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 import DataTable from '../../components/common/DataTable.jsx';
 
-const MOCK_STUDENTS = [
-  { id: '201', name: 'Ravi Kumar', rollNumber: 'CS22B1001', email: 'ravi@ams.edu', courseId: '1', courseName: 'B.Tech Computer Science', semester: 3, faceStatus: 'registered', faceImagesCount: 10, registrationDate: '2026-02-10' },
-  { id: '202', name: 'Sarah Miller', rollNumber: 'CS22B1002', email: 'sarah@ams.edu', courseId: '1', courseName: 'B.Tech Computer Science', semester: 3, faceStatus: 'registered', faceImagesCount: 10, registrationDate: '2026-02-11' },
-  { id: '203', name: 'Aarav Sharma', rollNumber: 'EC23B2001', email: 'aarav@ams.edu', courseId: '3', courseName: 'B.Tech Electronics & Comm.', semester: 2, faceStatus: 'pending', faceImagesCount: 0, registrationDate: null },
-  { id: '204', name: 'Emily Davis', rollNumber: 'ME21B3005', email: 'emily@ams.edu', courseId: '4', courseName: 'B.Tech Mechanical Eng.', semester: 5, faceStatus: 'registered', faceImagesCount: 10, registrationDate: '2026-01-15' },
-  { id: '205', name: 'Vijay Patel', rollNumber: 'CE22B4009', email: 'vijay@ams.edu', courseId: '5', courseName: 'B.Tech Civil Eng.', semester: 4, faceStatus: 'pending', faceImagesCount: 3, registrationDate: null },
-];
-
-const COURSES = [
-  { id: '1', name: 'B.Tech Computer Science' },
-  { id: '2', name: 'M.Tech Software Engineering' },
-  { id: '3', name: 'B.Tech Electronics & Comm.' },
-  { id: '4', name: 'B.Tech Mechanical Eng.' },
-  { id: '5', name: 'B.Tech Civil Eng.' },
-];
+import DataTable from '../../components/common/DataTable.jsx';
 
 function Students() {
   const [students, setStudents] = useState([]);
-  const [courses, setCourses] = useState(COURSES);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [courseFilter, setCourseFilter] = useState('');
@@ -75,11 +61,12 @@ function Students() {
         registrationDate: s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '—'
       }));
 
-      setStudents(normStuds.length > 0 ? normStuds : MOCK_STUDENTS);
-      setCourses(normCourses.length > 0 ? normCourses : COURSES);
+      setStudents(normStuds);
+      setCourses(normCourses);
     } catch (err) {
-      console.warn('API error, using mock data:', err);
-      setStudents(MOCK_STUDENTS);
+      console.warn('API error fetching students:', err);
+      setStudents([]);
+      setCourses([]);
     } finally {
       setLoading(false);
     }

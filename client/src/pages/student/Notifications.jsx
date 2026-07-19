@@ -5,11 +5,6 @@ import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 
-const MOCK_STUDENT_NOTIFS = [
-  { id: 1, sender: 'Dr. Alan Turing', subject: 'CS-301', message: 'Warning: Your attendance in CS-301 is below the required 75% threshold. Please meet Dr. Alan Turing in LHC-101.', date: '2026-07-15 14:00', read: false },
-  { id: 2, sender: 'Dr. Grace Hopper', subject: 'CS-302', message: 'Announcement: The lecture on Friday 17th July has been rescheduled to Thursday at 14:00 in LHC-101.', date: '2026-07-14 10:30', read: true }
-];
-
 function StudentNotifications() {
   const [notifs, setNotifs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,11 +12,20 @@ function StudentNotifications() {
   const fetchNotifs = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/student/notifications');
-      setNotifs(res.data.notifications || res.data);
+      const res = await api.get('/notifications');
+      const raw = res.data?.data || res.data?.notifications || res.data || [];
+      const formatted = Array.isArray(raw) ? raw.map(n => ({
+        id: n._id || n.id,
+        sender: n.sender?.name || n.sender || 'Faculty',
+        subject: n.title || 'Announcement',
+        message: n.message || '',
+        date: n.createdAt ? new Date(n.createdAt).toLocaleString() : 'Recently',
+        read: !!n.isRead
+      })) : [];
+      setNotifs(formatted);
     } catch (err) {
-      console.warn('API student notifications error, using mock logs:', err);
-      setNotifs(MOCK_STUDENT_NOTIFS);
+      console.warn('API student notifications error:', err);
+      setNotifs([]);
     } finally {
       setLoading(false);
     }

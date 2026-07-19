@@ -5,19 +5,8 @@ import FaceRecognitionStream from '../../components/face/FaceRecognitionStream.j
 import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 
-const SUBJECTS = [
-  { code: 'CS-301', name: 'Data Structures & Algorithms', courseId: '1' },
-  { code: 'CS-302', name: 'Database Management Systems', courseId: '1' },
-  { code: 'CS-501', name: 'Artificial Intelligence', courseId: '1' },
-];
-
-const MOCK_RECOGNITION_POOL = [
-  { name: 'Ravi Kumar', rollNumber: 'CS22B1001', studentId: '201', bbox: { x: 15, y: 15, w: 25, h: 35 }, confidence: 0.96 },
-  { name: 'Sarah Miller', rollNumber: 'CS22B1002', studentId: '202', bbox: { x: 50, y: 20, w: 22, h: 32 }, confidence: 0.94 },
-  { name: 'Emily Davis', rollNumber: 'ME21B3005', studentId: '204', bbox: { x: 30, y: 40, w: 20, h: 30 }, confidence: 0.91 }
-];
-
 function LiveAttendance() {
+  const [subjectsList, setSubjectsList] = useState([]);
   const [subjectCode, setSubjectCode] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [recognizedFaces, setRecognizedFaces] = useState([]);
@@ -25,7 +14,14 @@ function LiveAttendance() {
   const [processingUpload, setProcessingUpload] = useState(false);
   const fileInputRef = useRef(null);
   
-  const selectedSubject = SUBJECTS.find(s => s.code === subjectCode);
+  useEffect(() => {
+    api.get('/subjects').then(res => {
+      const raw = res.data?.data || res.data?.subjects || res.data || [];
+      setSubjectsList(raw);
+    }).catch(() => {});
+  }, []);
+
+  const selectedSubject = subjectsList.find(s => s.code === subjectCode || s._id === subjectCode);
 
   const handleRecognize = async (imageSrc) => {
     if (!subjectCode) return;
@@ -34,15 +30,14 @@ function LiveAttendance() {
       const res = await api.post('/face/recognize', {
         image: imageSrc,
         subjectCode,
-        courseId: selectedSubject?.courseId
+        courseId: selectedSubject?.course?._id || selectedSubject?.course
       });
       
       const detections = res.data?.data?.matches || res.data?.data?.detections || [];
       const matchedFaces = detections.filter(d => d.matched && d.studentId);
       updateRecognitionsAndMark(matchedFaces.length > 0 ? matchedFaces : detections);
     } catch (err) {
-      console.warn('API error during live recognition, running demo simulation:', err);
-      simulateDemoMatch();
+      console.warn('API error during live recognition:', err);
     }
   };
 
@@ -67,25 +62,6 @@ function LiveAttendance() {
         return prev;
       });
     });
-  };
-
-  // Demo simulation helper
-  const simulateDemoMatch = () => {
-    const randomCount = Math.floor(Math.random() * 2) + 1;
-    const shuffled = [...MOCK_RECOGNITION_POOL].sort(() => 0.5 - Math.random());
-    const mockDetections = shuffled.slice(0, randomCount).map(d => ({ ...d, matched: true }));
-    
-    const processedDetections = mockDetections.map(d => ({
-      ...d,
-      bbox: {
-        x: Math.min(Math.max(d.bbox.x + (Math.random() * 8 - 4), 5), 70),
-        y: Math.min(Math.max(d.bbox.y + (Math.random() * 8 - 4), 5), 60),
-        w: d.bbox.w,
-        h: d.bbox.h
-      }
-    }));
-
-    updateRecognitionsAndMark(processedDetections);
   };
 
   const handleStart = () => {
@@ -169,8 +145,8 @@ function LiveAttendance() {
             disabled={isActive}
           >
             <option value="">Choose class to open scanner...</option>
-            {SUBJECTS.map(s => (
-              <option key={s.code} value={s.code}>{s.code} - {s.name}</option>
+            {subjectsList.map(s => (
+              <option key={s._id || s.code} value={s.code || s._id}>{s.code ? `${s.code} - ${s.name}` : s.name}</option>
             ))}
           </select>
         </div>

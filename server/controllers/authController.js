@@ -247,7 +247,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
  * POST /api/v1/auth/verify-email
  */
 export const verifyEmail = asyncHandler(async (req, res) => {
-  const { token } = req.body;
+  const token = req.body?.token || req.query?.token;
 
   if (!token) {
     throw ApiError.badRequest('Verification token is required');

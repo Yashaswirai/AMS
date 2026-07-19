@@ -5,32 +5,39 @@ import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 
-const SUBJECTS = [
-  { code: 'CS-301', name: 'Data Structures & Algorithms' },
-  { code: 'CS-302', name: 'Database Management Systems' },
-];
-
-const MOCK_SENT_NOTIFS = [
-  { id: 1, subject: 'CS-301', scope: 'Low Attendance (<75%)', message: 'Warning: Your attendance in CS-301 is below the required 75% threshold. Please meet Dr. Alan Turing in LHC-101.', date: '2026-07-15 14:00' },
-  { id: 2, subject: 'CS-302', scope: 'All Enrolled Students', message: 'Announcement: The lecture on Friday 17th July has been rescheduled to Thursday at 14:00 in LHC-101.', date: '2026-07-14 10:30' },
-];
-
 function Notifications() {
-  const [subject, setSubject] = useState('CS-301');
+  const [subjectsList, setSubjectsList] = useState([]);
+  const [subject, setSubject] = useState('');
   const [targetScope, setTargetScope] = useState('atrisk');
   const [message, setMessage] = useState('');
   const [sentLogs, setSentLogs] = useState([]);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    api.get('/subjects').then(res => {
+      const raw = res.data?.data || res.data?.subjects || res.data || [];
+      setSubjectsList(raw);
+      if (raw.length > 0) setSubject(raw[0].code || raw[0]._id);
+    }).catch(() => {});
+  }, []);
+
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/notifications/teacher');
-      setSentLogs(res.data.logs || res.data);
+      const res = await api.get('/notifications');
+      const raw = res.data?.data || res.data?.notifications || res.data || [];
+      const formatted = Array.isArray(raw) ? raw.map(n => ({
+        id: n._id || n.id,
+        subject: n.title || 'Announcement',
+        scope: n.recipientGroup || 'All Enrolled Students',
+        message: n.message || '',
+        date: n.createdAt ? new Date(n.createdAt).toLocaleString() : 'Recently'
+      })) : [];
+      setSentLogs(formatted);
     } catch (err) {
-      console.warn('API logs error, loading mock notification database:', err);
-      setSentLogs(MOCK_SENT_NOTIFS);
+      console.warn('API logs error:', err);
+      setSentLogs([]);
     } finally {
       setLoading(false);
     }
@@ -101,7 +108,7 @@ function Notifications() {
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-subtle)]">Course Class</label>
               <select className="input-field" value={subject} onChange={(e) => setSubject(e.target.value)}>
-                {SUBJECTS.map(s => <option key={s.code} value={s.code}>{s.code} - {s.name}</option>)}
+                {subjectsList.map(s => <option key={s._id || s.code} value={s.code || s._id}>{s.code ? `${s.code} - ${s.name}` : s.name}</option>)}
               </select>
             </div>
 

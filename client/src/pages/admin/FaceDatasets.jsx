@@ -5,33 +5,6 @@ import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 
-const MOCK_DATASETS = [
-  {
-    studentId: '201',
-    name: 'Ravi Kumar',
-    rollNumber: 'CS22B1001',
-    imagesCount: 10,
-    lastUpdated: '2026-07-10 14:32',
-    images: Array.from({ length: 10 }, (_, i) => `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80&sig=${i}`),
-  },
-  {
-    studentId: '202',
-    name: 'Sarah Miller',
-    rollNumber: 'CS22B1002',
-    imagesCount: 10,
-    lastUpdated: '2026-07-11 11:05',
-    images: Array.from({ length: 10 }, (_, i) => `https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80&sig=${i}`),
-  },
-  {
-    studentId: '204',
-    name: 'Emily Davis',
-    rollNumber: 'ME21B3005',
-    imagesCount: 10,
-    lastUpdated: '2026-06-25 09:12',
-    images: Array.from({ length: 10 }, (_, i) => `https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80&sig=${i}`),
-  },
-];
-
 function FaceDatasets() {
   const [datasets, setDatasets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,8 +19,8 @@ function FaceDatasets() {
       const list = res.data?.data?.datasets || res.data?.datasets || [];
       setDatasets(list);
     } catch (err) {
-      console.warn('API error, using fallback datasets:', err);
-      setDatasets(MOCK_DATASETS);
+      console.warn('API error fetching datasets:', err);
+      setDatasets([]);
     } finally {
       setLoading(false);
     }

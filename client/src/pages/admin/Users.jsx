@@ -9,15 +9,6 @@ import DataTable from '../../components/common/DataTable.jsx';
 
 import Pagination from '../../components/common/Pagination.jsx';
 
-const MOCK_USERS = [
-  { id: '1', name: 'System Admin', email: 'admin@frams.edu', role: 'admin', status: 'active', lastLogin: '2026-07-16 10:15' },
-  { id: '2', name: 'Dr. Alan Turing', email: 'turing@frams.edu', role: 'teacher', status: 'active', lastLogin: '2026-07-15 14:20' },
-  { id: '3', name: 'Dr. Grace Hopper', email: 'hopper@frams.edu', role: 'teacher', status: 'active', lastLogin: '2026-07-16 09:05' },
-  { id: '4', name: 'Ravi Kumar', email: 'ravi@frams.edu', role: 'student', status: 'active', lastLogin: '2026-07-14 11:30' },
-  { id: '5', name: 'Sarah Miller', email: 'sarah@frams.edu', role: 'student', status: 'active', lastLogin: '2026-07-14 10:05' },
-  { id: '6', name: 'Vijay Patel', email: 'vijay@frams.edu', role: 'student', status: 'suspended', lastLogin: '2026-07-02 16:40' },
-];
-
 function Users() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,10 +50,10 @@ function Users() {
       const rolePriority = { admin: 1, teacher: 2, student: 3 };
       normalizedUsers.sort((a, b) => (rolePriority[a.role] || 4) - (rolePriority[b.role] || 4));
 
-      setUsers(normalizedUsers.length > 0 ? normalizedUsers : MOCK_USERS);
+      setUsers(normalizedUsers);
     } catch (err) {
-      console.warn('API error, using mock users:', err);
-      setUsers(MOCK_USERS);
+      console.warn('API error fetching users:', err);
+      setUsers([]);
     } finally {
       setLoading(false);
     }

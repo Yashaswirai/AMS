@@ -5,21 +5,21 @@ import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 import DataTable from '../../components/common/DataTable.jsx';
 
-const MOCK_TEACHER_REPORT = [
-  { studentId: '201', name: 'Ravi Kumar', rollNumber: 'CS22B1001', present: 14, total: 16, percentage: 87.5 },
-  { studentId: '202', name: 'Sarah Miller', rollNumber: 'CS22B1002', present: 15, total: 16, percentage: 93.8 },
-  { studentId: '204', name: 'Emily Davis', rollNumber: 'ME21B3005', present: 13, total: 16, percentage: 81.3 },
-  { studentId: '205', name: 'Vijay Patel', rollNumber: 'CE22B4009', present: 10, total: 16, percentage: 62.5 },
-];
-
-const SUBJECTS = ['CS-301', 'CS-302', 'CS-501'];
-
 function Reports() {
-  const [subject, setSubject] = useState('CS-301');
-  const [startDate, setStartDate] = useState('2026-07-01');
-  const [endDate, setEndDate] = useState('2026-07-16');
+  const [subjectsList, setSubjectsList] = useState([]);
+  const [subject, setSubject] = useState('');
+  const [startDate, setStartDate] = useState(new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api.get('/subjects').then(res => {
+      const raw = res.data?.data || res.data?.subjects || res.data || [];
+      setSubjectsList(raw);
+      if (raw.length > 0) setSubject(raw[0].code || raw[0]._id);
+    }).catch(() => {});
+  }, []);
 
   const handleGenerate = async (e) => {
     e.preventDefault();
@@ -27,14 +27,14 @@ function Reports() {
     const toastId = toast.loading('Calculating student attendance logs...');
     
     try {
-      await api.get(`/reports/teacher?subject=${subject}&startDate=${startDate}&endDate=${endDate}`);
-      setReportData(MOCK_TEACHER_REPORT);
+      const res = await api.get(`/reports/generate?type=teacher&subject=${subject}&startDate=${startDate}&endDate=${endDate}`);
+      const raw = res.data?.data || res.data?.records || res.data || [];
+      setReportData(Array.isArray(raw) ? raw : []);
       toast.success('Roster compiled successfully', { id: toastId });
     } catch (err) {
-      console.warn('API teacher report failed, using mock data:', err);
-      await new Promise(r => setTimeout(r, 800));
-      setReportData(MOCK_TEACHER_REPORT);
-      toast.success('Roster compiled successfully (local)', { id: toastId });
+      console.warn('API teacher report failed:', err);
+      setReportData([]);
+      toast.error('No matching records found in database', { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -84,7 +84,7 @@ function Reports() {
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-subtle)]">Select Subject</label>
               <select className="input-field" value={subject} onChange={(e) => setSubject(e.target.value)}>
-                {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                {subjectsList.map(s => <option key={s._id || s.code} value={s.code || s._id}>{s.code ? `${s.code} - ${s.name}` : s.name}</option>)}
               </select>
             </div>
 

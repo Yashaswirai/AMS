@@ -7,34 +7,12 @@ import Modal from '../../components/common/Modal.jsx';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 import DataTable from '../../components/common/DataTable.jsx';
 
-const MOCK_SUBJECTS = [
-  { id: 1, name: 'Data Structures & Algorithms', code: 'CS-301', courseId: '1', courseName: 'B.Tech Computer Science', semester: '3', teacherId: '101', teacherName: 'Dr. Alan Turing', credits: 4 },
-  { id: 2, name: 'Database Management Systems', code: 'CS-302', courseId: '1', courseName: 'B.Tech Computer Science', semester: '3', teacherId: '102', teacherName: 'Dr. Grace Hopper', credits: 4 },
-  { id: 3, name: 'Artificial Intelligence', code: 'CS-501', courseId: '1', courseName: 'B.Tech Computer Science', semester: '5', teacherId: '103', teacherName: 'Dr. Geoffrey Hinton', credits: 3 },
-  { id: 4, name: 'Embedded Systems', code: 'EC-401', courseId: '3', courseName: 'B.Tech Electronics & Comm.', semester: '4', teacherId: '104', teacherName: 'Prof. Claude Shannon', credits: 4 },
-  { id: 5, name: 'Machine Design', code: 'ME-502', courseId: '4', courseName: 'B.Tech Mechanical Eng.', semester: '5', teacherId: '105', teacherName: 'Prof. Nikola Tesla', credits: 3 },
-];
-
-const COURSES = [
-  { id: '1', name: 'B.Tech Computer Science' },
-  { id: '2', name: 'M.Tech Software Engineering' },
-  { id: '3', name: 'B.Tech Electronics & Comm.' },
-  { id: '4', name: 'B.Tech Mechanical Eng.' },
-  { id: '5', name: 'B.Tech Civil Eng.' },
-];
-
-const TEACHERS = [
-  { id: '101', name: 'Dr. Alan Turing' },
-  { id: '102', name: 'Dr. Grace Hopper' },
-  { id: '103', name: 'Dr. Geoffrey Hinton' },
-  { id: '104', name: 'Prof. Claude Shannon' },
-  { id: '105', name: 'Prof. Nikola Tesla' },
-];
+import DataTable from '../../components/common/DataTable.jsx';
 
 function Subjects() {
   const [subjects, setSubjects] = useState([]);
-  const [courses, setCourses] = useState(COURSES);
-  const [teachers, setTeachers] = useState(TEACHERS);
+  const [courses, setCourses] = useState([]);
+  const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [courseFilter, setCourseFilter] = useState('');
@@ -91,12 +69,14 @@ function Subjects() {
         credits: s.credits || 3
       }));
 
-      setSubjects(normSubs.length > 0 ? normSubs : MOCK_SUBJECTS);
-      setCourses(normCourses.length > 0 ? normCourses : COURSES);
-      setTeachers(normTeachers.length > 0 ? normTeachers : TEACHERS);
+      setSubjects(normSubs);
+      setCourses(normCourses);
+      setTeachers(normTeachers);
     } catch (err) {
-      console.warn('API error, using mock data:', err);
-      setSubjects(MOCK_SUBJECTS);
+      console.warn('API error fetching subjects:', err);
+      setSubjects([]);
+      setCourses([]);
+      setTeachers([]);
     } finally {
       setLoading(false);
     }

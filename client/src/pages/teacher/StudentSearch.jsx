@@ -6,56 +6,6 @@ import api from '../../services/api.js';
 import Modal from '../../components/common/Modal.jsx';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
 
-const MOCK_STUDENT_PROFILES = [
-  {
-    id: '201',
-    name: 'Ravi Kumar',
-    rollNumber: 'CS22B1001',
-    email: 'ravi@ams.edu',
-    department: 'Computer Science',
-    courseName: 'B.Tech Computer Science',
-    semester: 3,
-    faceStatus: 'registered',
-    overallAttendance: 87.5,
-    subjects: [
-      { name: 'Data Structures & Algorithms', percentage: 92 },
-      { name: 'Database Management Systems', percentage: 85 },
-      { name: 'Artificial Intelligence', percentage: 83 }
-    ]
-  },
-  {
-    id: '202',
-    name: 'Sarah Miller',
-    rollNumber: 'CS22B1002',
-    email: 'sarah@ams.edu',
-    department: 'Computer Science',
-    courseName: 'B.Tech Computer Science',
-    semester: 3,
-    faceStatus: 'registered',
-    overallAttendance: 93.8,
-    subjects: [
-      { name: 'Data Structures & Algorithms', percentage: 95 },
-      { name: 'Database Management Systems', percentage: 92 },
-      { name: 'Artificial Intelligence', percentage: 94 }
-    ]
-  },
-  {
-    id: '203',
-    name: 'Aarav Sharma',
-    rollNumber: 'EC23B2001',
-    email: 'aarav@ams.edu',
-    department: 'Electronics',
-    courseName: 'B.Tech Electronics & Comm.',
-    semester: 2,
-    faceStatus: 'pending',
-    overallAttendance: 68.8,
-    subjects: [
-      { name: 'Embedded Systems', percentage: 70 },
-      { name: 'Signals & Systems', percentage: 65 },
-    ]
-  },
-];
-
 function StudentSearch() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -69,16 +19,24 @@ function StudentSearch() {
   const fetchStudents = async (query = '') => {
     setLoading(true);
     try {
-      const res = await api.get(`/students/search?q=${query}`);
-      setStudents(res.data.students || res.data);
+      const res = await api.get(`/students?search=${encodeURIComponent(query)}`);
+      const raw = res.data?.data || res.data?.students || res.data || [];
+      const formatted = Array.isArray(raw) ? raw.map(s => ({
+        id: s._id || s.id,
+        name: s.user?.name || s.name || 'Student',
+        rollNumber: s.rollNumber || 'CS000',
+        email: s.user?.email || s.email || '',
+        department: s.department?.name || s.department || 'Department',
+        courseName: s.course?.name || s.courseName || 'Course',
+        semester: s.semester || 1,
+        faceStatus: s.faceRegistered ? 'registered' : (s.faceStatus || 'pending'),
+        overallAttendance: s.overallAttendance || 0,
+        subjects: s.subjects || []
+      })) : [];
+      setStudents(formatted);
     } catch (err) {
-      console.warn('API student search error, running mock search:', err);
-      // Filter mock profiles
-      const filtered = MOCK_STUDENT_PROFILES.filter(s =>
-        s.name.toLowerCase().includes(query.toLowerCase()) ||
-        s.rollNumber.toLowerCase().includes(query.toLowerCase())
-      );
-      setStudents(filtered);
+      console.warn('API student search error:', err);
+      setStudents([]);
     } finally {
       setLoading(false);
     }
