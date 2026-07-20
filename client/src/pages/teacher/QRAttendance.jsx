@@ -194,8 +194,8 @@ function QRAttendance() {
               </div>
 
               {/* QR Container */}
-              <div className="qr-container bg-white p-6 rounded-2xl shadow-xl flex items-center justify-center mt-6">
-                <QRCodeSVG value={qrToken} size={250} level="H" includeMargin={true} />
+              <div className="qr-container bg-white p-4 sm:p-6 rounded-2xl shadow-xl flex items-center justify-center mt-6 w-full max-w-[280px]">
+                <QRCodeSVG value={qrToken} size={220} level="H" includeMargin={true} className="w-full h-auto max-w-[240px]" />
               </div>
 
               {/* Rotating Indicator */}

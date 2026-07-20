@@ -160,7 +160,7 @@ function StudentDashboard() {
             ) : (
               stats.subjects.map((sub, i) => (
                 <div key={i} className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-semibold">
+                  <div className="flex flex-col sm:flex-row justify-between text-xs font-semibold gap-1">
                     <span className="text-[var(--text)]">{sub.code} - {sub.name}</span>
                     <span className="font-bold" style={{ color: getPercentageColor(sub.percentage) }}>
                       {sub.percentage}% ({sub.classesAttended}/{sub.classesTotal})

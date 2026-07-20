@@ -111,7 +111,7 @@ function AdminDashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
         <div>
           <h1 className="text-2xl font-black" style={{ color: 'var(--text)' }}>Admin Control Panel</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -119,7 +119,7 @@ function AdminDashboard() {
           </p>
         </div>
         <button
-          className="btn-secondary text-sm flex items-center gap-1.5"
+          className="btn-secondary text-sm flex items-center gap-1.5 self-start sm:self-auto"
           onClick={fetchDashboardData}
           disabled={loading}
         >

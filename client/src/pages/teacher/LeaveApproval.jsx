@@ -107,7 +107,7 @@ function LeaveApproval() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2 mt-6">
+                <div className="flex flex-col sm:flex-row gap-2 mt-6">
                   <button
                     onClick={() => handleAction(leave.id, 'approved')}
                     className="btn-primary py-2 flex-1 text-xs"

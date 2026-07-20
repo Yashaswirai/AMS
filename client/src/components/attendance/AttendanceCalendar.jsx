@@ -80,7 +80,7 @@ function AttendanceCalendar({ attendanceData = {}, title = 'Attendance Calendar'
             style={{ cursor: isCurrentMonth && status ? 'pointer' : 'default' }}
           >
             <div
-              className="w-8 h-8 rounded-full flex items-center justify-center relative"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center relative"
               style={{
                 background: config ? config.bg : 'transparent',
                 border: isToday ? '2px solid #6366f1' : 'none',

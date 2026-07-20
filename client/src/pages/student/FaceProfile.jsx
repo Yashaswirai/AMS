@@ -191,7 +191,7 @@ function FaceProfile() {
           ) : (
             <div className="glass-card rounded-3xl p-6 space-y-6">
               {/* Registration Mode Tabs */}
-              <div className="flex bg-[var(--surface-elevated)] p-1 rounded-2xl border border-[var(--border)]">
+              <div className="flex flex-col sm:flex-row gap-1 bg-[var(--surface-elevated)] p-1 rounded-2xl border border-[var(--border)]">
                 <button
                   onClick={() => setActiveTab('camera')}
                   className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
