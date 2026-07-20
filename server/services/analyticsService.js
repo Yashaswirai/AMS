@@ -2,6 +2,7 @@ import Attendance from '../models/Attendance.js';
 import Student from '../models/Student.js';
 import Subject from '../models/Subject.js';
 import Department from '../models/Department.js';
+import Course from '../models/Course.js';
 import Teacher from '../models/Teacher.js';
 import User from '../models/User.js';
 import { ATTENDANCE_THRESHOLDS, RISK_LEVELS } from '../utils/constants.js';
@@ -195,6 +196,58 @@ export const computeDepartmentBreakdown = async () => {
   );
 
   return breakdown.sort((a, b) => b.attendance - a.attendance);
+};
+
+/**
+ * Course-wise attendance breakdown
+ */
+export const computeCourseBreakdown = async () => {
+  const courses = await Course.find({ isActive: true }).lean();
+
+  const breakdown = await Promise.all(
+    courses.map(async (crs) => {
+      const studentIds = await Student.find({ course: crs._id, isActive: true })
+        .select('_id')
+        .lean();
+      const sIds = studentIds.map((s) => s._id);
+
+      if (sIds.length === 0) {
+        return {
+          courseName: crs.name,
+          courseCode: crs.code,
+          courseId: crs._id,
+          totalStudents: 0,
+          attendance: 0,
+        };
+      }
+
+      const stats = await Attendance.aggregate([
+        { $match: { student: { $in: sIds } } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            present: {
+              $sum: { $cond: [{ $in: ['$status', ['present', 'late']] }, 1, 0] },
+            },
+          },
+        },
+      ]);
+
+      const s = stats[0] || { total: 0, present: 0 };
+      const percentage = s.total > 0 ? Math.round((s.present / s.total) * 10000) / 100 : 0;
+
+      return {
+        courseName: crs.name,
+        courseCode: crs.code,
+        courseId: crs._id,
+        totalStudents: sIds.length,
+        attendance: percentage,
+      };
+    })
+  );
+
+  return breakdown;
 };
 
 /**

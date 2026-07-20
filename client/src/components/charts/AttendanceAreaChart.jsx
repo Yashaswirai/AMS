@@ -18,21 +18,13 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 function AttendanceAreaChart({ data = [], title = 'Attendance Trend' }) {
-  const sampleData = data.length > 0 ? data : [
-    { day: 'Mon', present: 88, absent: 12, late: 5 },
-    { day: 'Tue', present: 92, absent: 8, late: 3 },
-    { day: 'Wed', present: 79, absent: 21, late: 8 },
-    { day: 'Thu', present: 95, absent: 5, late: 2 },
-    { day: 'Fri', present: 85, absent: 15, late: 6 },
-    { day: 'Sat', present: 70, absent: 30, late: 4 },
-    { day: 'Sun', present: 60, absent: 40, late: 1 },
-  ];
+  const chartData = data;
 
   return (
     <div className="card rounded-2xl p-6">
       <h3 className="text-base font-bold mb-6" style={{ color: 'var(--text)' }}>{title}</h3>
       <ResponsiveContainer width="100%" height={260}>
-        <AreaChart data={sampleData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+        <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
           <defs>
             <linearGradient id="presentGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />

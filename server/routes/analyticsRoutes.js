@@ -2,6 +2,7 @@ import express from 'express';
 import {
   overview,
   departmentBreakdown,
+  courseBreakdown,
   subjectAnalysis,
   studentRankings,
   heatmap,
@@ -17,6 +18,7 @@ router.use(authorize('admin', 'teacher'));
 
 router.get('/overview', overview);
 router.get('/departments', departmentBreakdown);
+router.get('/courses', courseBreakdown);
 router.get('/subjects', subjectAnalysis);
 router.get('/rankings', studentRankings);
 router.get('/heatmap', heatmap);

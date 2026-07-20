@@ -1,12 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiChevronLeft, FiChevronRight, FiCalendar } from 'react-icons/fi';
 import AttendanceCalendar from '../../components/attendance/AttendanceCalendar.jsx';
-
-const SUBJECTS = ['All Courses', 'CS-301 Data Structures', 'CS-302 Database Management', 'CS-303 Computer Networks'];
+import api from '../../services/api.js';
 
 function StudentAttendanceCalendar() {
+  const [subjectsList, setSubjectsList] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('All Courses');
+  const [attendanceData, setAttendanceData] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCalendarData = async () => {
+      setLoading(true);
+      try {
+        const [subsRes, logsRes] = await Promise.all([
+          api.get('/subjects').catch(() => null),
+          api.get('/attendance/history?studentId=me').catch(() => null)
+        ]);
+
+        const rawSubs = subsRes?.data?.data || subsRes?.data?.subjects || subsRes?.data || [];
+        if (Array.isArray(rawSubs)) {
+          setSubjectsList(['All Courses', ...rawSubs.map(s => s.code ? `${s.code} ${s.name || ''}`.trim() : s.name)]);
+        } else {
+          setSubjectsList(['All Courses']);
+        }
+
+        const rawLogs = logsRes?.data?.data?.records || (Array.isArray(logsRes?.data?.data) ? logsRes.data.data : logsRes?.data?.records || logsRes?.data?.logs || []);
+        const attMap = {};
+        if (Array.isArray(rawLogs)) {
+          rawLogs.forEach(item => {
+            if (item.date) {
+              const dateKey = new Date(item.date).toISOString().split('T')[0];
+              attMap[dateKey] = item.status || 'present';
+            }
+          });
+        }
+        setAttendanceData(attMap);
+      } catch (err) {
+        console.warn('API error fetching student calendar data:', err);
+        setAttendanceData({});
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCalendarData();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -21,7 +61,7 @@ function StudentAttendanceCalendar() {
         <div className="lg:col-span-1 glass-card rounded-3xl p-6 h-fit space-y-4">
           <h3 className="font-bold text-[var(--text)] border-b border-[var(--border)] pb-3">Course Scope</h3>
           <div className="space-y-2">
-            {SUBJECTS.map((sub, i) => (
+            {subjectsList.map((sub, i) => (
               <div
                 key={i}
                 onClick={() => setSelectedSubject(sub)}
@@ -37,7 +77,7 @@ function StudentAttendanceCalendar() {
           </div>
         </div>
 
-        {/* Large Calendar Calendar Heatmap Card */}
+        {/* Large Calendar Heatmap Card */}
         <div className="lg:col-span-3 glass-card rounded-3xl p-6">
           <div className="flex justify-between items-center border-b border-[var(--border)] pb-4 mb-4">
             <h3 className="font-black text-lg text-[var(--text)] flex items-center gap-2">
@@ -52,7 +92,7 @@ function StudentAttendanceCalendar() {
 
           <div className="p-4 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-2xl">
             {/* Renders custom date heat grids */}
-            <AttendanceCalendar />
+            <AttendanceCalendar attendanceData={attendanceData} />
           </div>
         </div>
       </div>

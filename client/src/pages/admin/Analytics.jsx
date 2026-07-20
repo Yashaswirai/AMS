@@ -9,13 +9,70 @@ import api from '../../services/api.js';
 
 function Analytics() {
   const [metrics, setMetrics] = useState({
-    avgAttendance: '85.4%',
-    peakDay: 'Wednesday',
-    atRiskCount: '24 students',
-    efficiencyGains: '+4.2%'
+    avgAttendance: '0%',
+    peakDay: '—',
+    atRiskCount: '0 students',
+    efficiencyGains: '0%'
   });
+  const [trendData, setTrendData] = useState([]);
+  const [deptData, setDeptData] = useState([]);
+  const [courseData, setCourseData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setLoading(true);
+      try {
+        const [dashRes, deptRes, crsRes] = await Promise.all([
+          api.get('/admin/dashboard').catch(() => null),
+          api.get('/analytics/departments').catch(() => null),
+          api.get('/analytics/courses').catch(() => null)
+        ]);
+
+        const overview = dashRes?.data?.data || dashRes?.data || {};
+        if (overview) {
+          const avg = overview.todayAttendance?.percentage ?? 0;
+          const atRisk = overview.atRiskStudents ?? 0;
+          setMetrics({
+            avgAttendance: `${avg}%`,
+            peakDay: overview.peakDay || '—',
+            atRiskCount: `${atRisk} students`,
+            efficiencyGains: overview.uptime || '100%'
+          });
+
+          if (Array.isArray(overview.weeklyTrend)) {
+            setTrendData(overview.weeklyTrend.map(t => ({
+              day: t.dayName || t.date,
+              present: t.percentage || 0,
+              absent: t.total > 0 ? Math.round(((t.total - t.present) / t.total) * 100) : 0
+            })));
+          }
+        }
+
+        const depts = deptRes?.data?.data || deptRes?.data || [];
+        if (Array.isArray(depts)) {
+          setDeptData(depts.map(d => ({
+            name: d.department || d.departmentCode || 'Dept',
+            value: d.attendance || 0
+          })));
+        }
+
+        const courses = crsRes?.data?.data || crsRes?.data || [];
+        if (Array.isArray(courses)) {
+          setCourseData(courses.map(c => ({
+            name: c.courseCode ? `${c.courseCode}` : (c.courseName || 'Course'),
+            attendance: c.attendance || 0
+          })));
+        }
+      } catch (err) {
+        console.warn('API error fetching analytics:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -31,7 +88,7 @@ function Analytics() {
           { label: 'Term Average Attendance', value: metrics.avgAttendance, icon: FiTrendingUp, color: 'text-indigo-400', bg: 'rgba(99,102,241,0.1)' },
           { label: 'Highest Attendance Day', value: metrics.peakDay, icon: FiCalendar, color: 'text-emerald-400', bg: 'rgba(16,185,129,0.1)' },
           { label: 'Identified At-Risk Profiles', value: metrics.atRiskCount, icon: FiUsers, color: 'text-red-400', bg: 'rgba(239,68,68,0.1)' },
-          { label: 'Biometric Scanner Uptime', value: '99.9%', icon: FiActivity, color: 'text-violet-400', bg: 'rgba(139,92,246,0.1)' },
+          { label: 'System Service Status', value: metrics.efficiencyGains, icon: FiActivity, color: 'text-violet-400', bg: 'rgba(139,92,246,0.1)' },
         ].map((m, i) => (
           <motion.div
             key={i}
@@ -45,7 +102,7 @@ function Analytics() {
             </div>
             <div>
               <p className="text-xs font-semibold text-[var(--text-muted)] leading-normal">{m.label}</p>
-              <p className="text-xl font-black text-[var(--text)] mt-1">{m.value}</p>
+              <p className="text-xl font-black text-[var(--text)] mt-1">{loading ? '—' : m.value}</p>
             </div>
           </motion.div>
         ))}
@@ -54,17 +111,17 @@ function Analytics() {
       {/* Main charts row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2">
-          <AttendanceAreaChart title="Interactive Enrollment & Daily Attendance Chart" />
+          <AttendanceAreaChart data={trendData} title="Interactive Enrollment & Daily Attendance Chart" />
         </div>
         <div>
-          <DepartmentPieChart />
+          <DepartmentPieChart data={deptData} />
         </div>
       </div>
 
       {/* Second Charts row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-1">
-          <AttendanceBarChart title="Subject Attendance Averages" />
+          <AttendanceBarChart data={courseData} title="Subject Attendance Averages" />
         </div>
         <div className="xl:col-span-2">
           <AttendanceHeatmap title="System Activity Tracker (Monthly Heatmap)" />

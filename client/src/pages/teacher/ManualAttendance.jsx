@@ -73,9 +73,8 @@ function ManualAttendance() {
       });
       toast.success('Attendance records saved successfully!', { id: toastId });
     } catch (err) {
-      console.warn('API save error, simulating locally:', err);
-      await new Promise(r => setTimeout(r, 1000));
-      toast.success('Attendance records updated successfully (local)!', { id: toastId });
+      console.error('API save error:', err);
+      toast.error('Failed to save attendance records. Please check database connection.', { id: toastId });
     }
   };
 

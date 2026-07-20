@@ -15,23 +15,6 @@ function AttendanceCalendar({ attendanceData = {}, title = 'Attendance Calendar'
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
 
-  // Sample data
-  const sampleData = Object.keys(attendanceData).length > 0 ? attendanceData : (() => {
-    const d = {};
-    const today = new Date();
-    for (let i = 0; i < 60; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = format(date, 'yyyy-MM-dd');
-      const r = Math.random();
-      if (date.getDay() === 0) d[dateStr] = 'holiday';
-      else if (r < 0.7) d[dateStr] = 'present';
-      else if (r < 0.85) d[dateStr] = 'absent';
-      else if (r < 0.95) d[dateStr] = 'late';
-      else d[dateStr] = 'no_class';
-    }
-    return d;
-  })();
 
   const renderHeader = () => (
     <div className="flex items-center justify-between mb-4">
@@ -73,6 +56,7 @@ function AttendanceCalendar({ attendanceData = {}, title = 'Attendance Calendar'
     const monthEnd = endOfMonth(monthStart);
     const startDate = startOfWeek(monthStart);
     const endDate = endOfWeek(monthEnd);
+    const calendarData = attendanceData;
 
     const rows = [];
     let days = [];
@@ -82,7 +66,7 @@ function AttendanceCalendar({ attendanceData = {}, title = 'Attendance Calendar'
       for (let i = 0; i < 7; i++) {
         const cloneDay = new Date(day);
         const dateStr = format(cloneDay, 'yyyy-MM-dd');
-        const status = sampleData[dateStr];
+        const status = calendarData[dateStr];
         const config = status ? STATUS_CONFIG[status] : null;
         const isToday = isSameDay(cloneDay, new Date());
         const isCurrentMonth = isSameMonth(cloneDay, monthStart);

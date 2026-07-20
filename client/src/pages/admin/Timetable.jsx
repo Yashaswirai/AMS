@@ -19,6 +19,7 @@ const TIMESLOTS = [
 function Timetable() {
   const [timetable, setTimetable] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [subjectsList, setSubjectsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [courseFilter, setCourseFilter] = useState('');
   const [semesterFilter, setSemesterFilter] = useState(1);
@@ -35,20 +36,25 @@ function Timetable() {
   const fetchTimetable = async () => {
     setLoading(true);
     try {
-      const [tableRes, coursesRes] = await Promise.all([
+      const [tableRes, coursesRes, subsRes] = await Promise.all([
         api.get(`/timetable?courseId=${courseFilter}&semester=${semesterFilter}`).catch(() => null),
-        api.get('/courses').catch(() => null)
+        api.get('/courses').catch(() => null),
+        api.get('/subjects').catch(() => null)
       ]);
       const rawTable = tableRes?.data?.data || tableRes?.data?.timetable || tableRes?.data || [];
       const rawCourses = coursesRes?.data?.data || coursesRes?.data?.courses || coursesRes?.data || [];
+      const rawSubs = subsRes?.data?.data || subsRes?.data?.subjects || subsRes?.data || [];
 
-      const normCourses = rawCourses.map(c => ({
+      const normCourses = Array.isArray(rawCourses) ? rawCourses.map(c => ({
         id: c._id || c.id,
         _id: c._id || c.id,
         name: c.name || ''
-      }));
+      })) : [];
 
-      const normTable = rawTable.map(t => ({
+      const normSubs = Array.isArray(rawSubs) ? rawSubs : [];
+      setSubjectsList(normSubs);
+
+      const normTable = Array.isArray(rawTable) ? rawTable.map(t => ({
         id: t._id || t.id,
         _id: t._id || t.id,
         courseId: t.course?._id || t.course || t.courseId || courseFilter,
@@ -59,17 +65,16 @@ function Timetable() {
         subjectName: t.subject?.name || t.subjectName || 'Subject',
         teacherName: t.teacher?.user?.name || t.teacher?.name || t.teacherName || 'Faculty',
         room: t.room || 'LHC-101'
-      }));
+      })) : [];
 
       setTimetable(normTable);
       setCourses(normCourses);
-      if (!courseFilter && normCourses.length > 0) {
+      if (normCourses.length > 0 && !courseFilter) {
         setCourseFilter(normCourses[0].id);
       }
     } catch (err) {
-      console.warn('API error fetching timetable:', err);
+      console.warn('API fetch timetable error:', err);
       setTimetable([]);
-      setCourses([]);
     } finally {
       setLoading(false);
     }
@@ -83,7 +88,7 @@ function Timetable() {
     setFormData({
       day: 'Monday',
       timeSlot: '09:00 - 10:00',
-      subjectCode: SUBJECTS[0]?.code || '',
+      subjectCode: subjectsList[0]?.code || subjectsList[0]?._id || '',
       room: 'LHC-101'
     });
     setModalOpen(true);
@@ -110,33 +115,22 @@ function Timetable() {
     }
 
     try {
-      const subject = SUBJECTS.find(s => s.code === formData.subjectCode);
+      const subject = subjectsList.find(s => s.code === formData.subjectCode || s._id === formData.subjectCode);
       const newSlot = {
         courseId: courseFilter,
         semester: semesterFilter,
         ...formData,
         subjectName: subject?.name || '',
-        teacherName: subject?.teacher || 'Faculty',
+        teacherName: subject?.teacher?.user?.name || subject?.teacher?.name || 'Faculty',
       };
       
       const res = await api.post('/timetable', newSlot);
-      setTimetable(prev => [...prev, { id: res.data?.slot?.id || Date.now(), ...newSlot }]);
+      setTimetable(prev => [...prev, { id: res.data?.slot?.id || res.data?.data?._id || Date.now(), ...newSlot }]);
       toast.success('Timetable slot added successfully');
       setModalOpen(false);
     } catch (err) {
-      console.warn('API save timetable error, simulating locally:', err);
-      const subject = SUBJECTS.find(s => s.code === formData.subjectCode);
-      const newSlot = {
-        id: Date.now(),
-        courseId: courseFilter,
-        semester: semesterFilter,
-        ...formData,
-        subjectName: subject?.name || '',
-        teacherName: subject?.teacher || 'Faculty',
-      };
-      setTimetable(prev => [...prev, newSlot]);
-      toast.success('Timetable slot added (local)');
-      setModalOpen(false);
+      console.error('API save timetable error:', err);
+      toast.error(err.response?.data?.message || 'Failed to save timetable slot');
     }
   };
 
@@ -146,9 +140,8 @@ function Timetable() {
       setTimetable(prev => prev.filter(t => t.id !== id));
       toast.success('Slot removed successfully');
     } catch (err) {
-      console.warn('API delete timetable error, simulating locally:', err);
-      setTimetable(prev => prev.filter(t => t.id !== id));
-      toast.success('Slot removed (local)');
+      console.error('API delete timetable error:', err);
+      toast.error(err.response?.data?.message || 'Failed to delete slot');
     }
   };
 
@@ -307,8 +300,8 @@ function Timetable() {
                 onChange={(e) => setFormData(prev => ({ ...prev, subjectCode: e.target.value }))}
               >
                 <option value="">Select Subject</option>
-                {SUBJECTS.map(s => (
-                  <option key={s.code} value={s.code}>{s.code} - {s.name} ({s.teacher})</option>
+                {subjectsList.map(s => (
+                  <option key={s._id || s.code} value={s.code || s._id}>{s.code ? `${s.code} - ${s.name}` : s.name}</option>
                 ))}
               </select>
             </div>

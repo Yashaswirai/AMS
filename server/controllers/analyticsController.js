@@ -3,6 +3,7 @@ import ApiResponse from '../utils/ApiResponse.js';
 import {
   computeOverview,
   computeDepartmentBreakdown,
+  computeCourseBreakdown,
   computeSubjectAnalysis,
   computeMonthlyTrends,
   computeHeatmap,
@@ -23,6 +24,14 @@ export const overview = asyncHandler(async (req, res) => {
 export const departmentBreakdown = asyncHandler(async (req, res) => {
   const stats = await computeDepartmentBreakdown();
   return new ApiResponse(200, stats, 'Department breakdown stats fetched').send(res);
+});
+
+/**
+ * GET /api/v1/analytics/courses
+ */
+export const courseBreakdown = asyncHandler(async (req, res) => {
+  const stats = await computeCourseBreakdown();
+  return new ApiResponse(200, stats, 'Course breakdown stats fetched').send(res);
 });
 
 /**

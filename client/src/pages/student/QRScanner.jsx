@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
-import { FiQrCode, FiCheckCircle, FiAlertCircle, FiRefreshCw, FiCamera, FiMapPin, FiShield } from 'react-icons/fi';
+import { FiCheckCircle, FiAlertCircle, FiRefreshCw, FiCamera, FiMapPin, FiShield } from 'react-icons/fi';
+import { RiQrCodeLine } from 'react-icons/ri';
 import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 
@@ -146,7 +147,7 @@ function StudentQRScanner() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-black text-[var(--text)] flex items-center gap-2">
-          <FiQrCode className="text-emerald-400" /> Student QR Check-In
+          <RiQrCodeLine className="text-emerald-400" /> Student QR Check-In
         </h1>
         <p className="text-sm text-[var(--text-muted)]">Scan classroom live dynamic QR code to self-mark attendance</p>
       </div>
@@ -191,7 +192,7 @@ function StudentQRScanner() {
           ) : (
             <div className="text-center py-10 space-y-4">
               <div className="w-20 h-20 rounded-3xl gradient-primary mx-auto flex items-center justify-center text-white text-3xl shadow-xl">
-                <FiQrCode />
+                <RiQrCodeLine />
               </div>
               <div className="max-w-md mx-auto">
                 <h4 className="font-bold text-[var(--text)] text-base">Ready for Check-In Scan</h4>

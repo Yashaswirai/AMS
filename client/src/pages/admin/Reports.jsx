@@ -54,18 +54,8 @@ function Reports() {
       link.click();
       toast.success('Downloaded report successfully!', { id: toastId });
     } catch (err) {
-      console.warn('API download fail, simulating file download locally:', err);
-      await new Promise(r => setTimeout(r, 1500));
-      
-      // local mock download trigger
-      const mockContent = JSON.stringify(previewData, null, 2);
-      const blob = new Blob([mockContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `AMS_Report_${reportType}_${startDate}_to_${endDate}.${format}`;
-      a.click();
-      toast.success(`Mock ${format.toUpperCase()} export downloaded!`, { id: toastId });
+      console.error('API download error:', err);
+      toast.error('Failed to download report. Please check server logs.', { id: toastId });
     }
   };
 

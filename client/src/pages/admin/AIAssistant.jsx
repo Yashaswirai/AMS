@@ -53,20 +53,11 @@ function AIAssistant() {
       };
       setMessages(prev => [...prev, aiMsg]);
     } catch (err) {
-      console.warn('AI API fail, simulating intelligence locally:', err);
-      await new Promise(r => setTimeout(r, 1500));
-
-      let reply = "I couldn't compile a live response. However, looking at the cached database, overall attendance stands at 87.3%. Computer Science remains the most active department (91.2%), while Mechanical has the highest number of at-risk students (8 profiles under 75% attendance).";
-      if (prompt.toLowerCase().includes('risk') || prompt.toLowerCase().includes('low')) {
-        reply = "Currently, there are 23 students flagged as 'At Risk' (attendance below 75%). The critical profiles are CS22B1001 (Ravi Kumar - 68%) and CE22B4009 (Vijay Patel - 62%). I recommend dispatching automated email reminders via the Users control panel.";
-      } else if (prompt.toLowerCase().includes('trend') || prompt.toLowerCase().includes('cs')) {
-        reply = "Computer Science attendance peaked at 94.5% on Tuesday following the midterm reviews, but dropped to 78.9% on Friday. This Friday drop is consistent across Semesters 3 and 5. I recommend checking for timetable scheduling overlaps.";
-      }
-
+      console.error('AI API error:', err);
       const aiMsg = {
         id: Date.now() + 1,
         sender: 'ai',
-        text: reply,
+        text: "I'm unable to connect to the AI assistant server right now. Please check your backend connection or try again later.",
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, aiMsg]);

@@ -10,17 +10,10 @@ import EmptyState from '../../components/common/EmptyState.jsx';
 import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 
-const MOCK = [
-  { id: 1, name: 'Computer Science', code: 'CS', hodName: 'Dr. Rajesh Kumar', studentCount: 320, courseCount: 8, status: 'active' },
-  { id: 2, name: 'Electronics Engineering', code: 'EC', hodName: 'Dr. Priya Sharma', studentCount: 280, courseCount: 6, status: 'active' },
-  { id: 3, name: 'Mechanical Engineering', code: 'ME', hodName: 'Dr. Anil Mehta', studentCount: 260, courseCount: 7, status: 'active' },
-  { id: 4, name: 'Civil Engineering', code: 'CE', hodName: 'Dr. Sunita Verma', studentCount: 210, courseCount: 5, status: 'inactive' },
-];
-
 const EMPTY_FORM = { name: '', code: '', hodName: '', status: 'active' };
 
 function Departments() {
-  const [departments, setDepartments] = useState(MOCK);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -36,7 +29,7 @@ function Departments() {
       try {
         const res = await api.get('/departments');
         const raw = res.data?.data || res.data?.departments || res.data || [];
-        const norm = raw.map(d => ({
+        const norm = Array.isArray(raw) ? raw.map(d => ({
           id: d._id || d.id,
           _id: d._id || d.id,
           name: d.name || '',
@@ -45,10 +38,13 @@ function Departments() {
           studentCount: d.totalStudents ?? d.studentCount ?? 0,
           courseCount: d.totalCourses ?? d.courseCount ?? 0,
           status: d.isActive !== false ? 'active' : 'inactive'
-        }));
-        setDepartments(norm.length > 0 ? norm : MOCK);
-      } catch { setDepartments(MOCK); }
-      finally { setLoading(false); }
+        })) : [];
+        setDepartments(norm);
+      } catch {
+        setDepartments([]);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchDepts();
   }, []);

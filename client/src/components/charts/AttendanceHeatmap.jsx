@@ -23,7 +23,7 @@ function AttendanceHeatmap({ data = [], title = 'Yearly Attendance Heatmap' }) {
 
         const dateStr = date.toISOString().split('T')[0];
         const dayData = data.find(item => item.date === dateStr);
-        const value = dayData ? dayData.value : Math.random() > 0.3 ? Math.floor(Math.random() * 4) + 1 : 0;
+        const value = dayData ? dayData.value : 0;
 
         week.push({ date: dateStr, value, dayOfWeek: date.getDay(), month: date.getMonth() });
       }

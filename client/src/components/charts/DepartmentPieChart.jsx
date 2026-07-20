@@ -32,13 +32,7 @@ const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent
 };
 
 function DepartmentPieChart({ data = [], title = 'Department-wise Attendance' }) {
-  const sampleData = data.length > 0 ? data : [
-    { name: 'Computer Science', value: 87 },
-    { name: 'Electronics', value: 82 },
-    { name: 'Mechanical', value: 79 },
-    { name: 'Civil', value: 91 },
-    { name: 'Chemical', value: 75 },
-  ];
+  const chartData = data;
 
   return (
     <div className="card rounded-2xl p-6">
@@ -46,7 +40,7 @@ function DepartmentPieChart({ data = [], title = 'Department-wise Attendance' })
       <ResponsiveContainer width="100%" height={280}>
         <PieChart>
           <Pie
-            data={sampleData}
+            data={chartData}
             cx="50%"
             cy="50%"
             innerRadius={60}
@@ -56,7 +50,7 @@ function DepartmentPieChart({ data = [], title = 'Department-wise Attendance' })
             labelLine={false}
             label={renderCustomLabel}
           >
-            {sampleData.map((entry, index) => (
+            {chartData.map((entry, index) => (
               <Cell key={index} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
