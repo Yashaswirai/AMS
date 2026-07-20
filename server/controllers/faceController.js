@@ -63,10 +63,12 @@ export const registerFace = asyncHandler(async (req, res) => {
       fileName: `face_${studentId}_${idx}_${Date.now()}.${filenames[idx].split('.').pop() || 'jpg'}`,
       folder: `/frams/faces/${studentId}`,
     }).catch((err) => {
-      // Fallback mock object if ImageKit is disabled or credentials missing
+      // Fallback: store actual base64 image data URL so real captured thumbnail is displayed!
+      const mime = mimetypes[idx] || 'image/jpeg';
+      const b64Data = buf.toString('base64');
       return {
-        url: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80&sig=${idx}`,
-        publicId: `mock_face_${studentId}_${idx}_${Date.now()}`,
+        url: `data:${mime};base64,${b64Data}`,
+        publicId: `local_face_${studentId}_${idx}_${Date.now()}`,
       };
     })
   );

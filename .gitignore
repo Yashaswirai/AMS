@@ -32,12 +32,12 @@ coverage/
 *.log
 
 # Models and large artifacts
-models/
+cv-api/models/
 *.joblib
 *.pkl
 
 # Data (embeddings / large generated files)
-data/embeddings/
+cv-api/data/embeddings/
 
 # Misc
 *.sqlite3

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiCpu, FiTrash2, FiSearch, FiRefreshCw, FiCheckCircle, FiInfo } from 'react-icons/fi';
+import { FiCpu, FiTrash2, FiSearch, FiRefreshCw, FiCheckCircle, FiInfo, FiUploadCloud } from 'react-icons/fi';
 import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner.jsx';
@@ -9,8 +9,10 @@ function FaceDatasets() {
   const [datasets, setDatasets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [training, setTraining] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
 
   const fetchDatasets = async () => {
     setLoading(true);
@@ -18,8 +20,13 @@ function FaceDatasets() {
       const res = await api.get('/face/datasets');
       const list = res.data?.data?.datasets || res.data?.datasets || [];
       setDatasets(list);
-      if (list.length > 0 && !selectedStudent) {
-        setSelectedStudent(list[0]);
+      if (list.length > 0) {
+        if (!selectedStudent) {
+          setSelectedStudent(list[0]);
+        } else {
+          const updated = list.find(d => d.studentId === selectedStudent.studentId);
+          if (updated) setSelectedStudent(updated);
+        }
       }
     } catch (err) {
       console.warn('API error fetching datasets:', err);
@@ -45,6 +52,37 @@ function FaceDatasets() {
       toast.error('Model retraining failed or CV API offline', { id: toastId });
     } finally {
       setTraining(false);
+    }
+  };
+
+  const handleUploadRealPhotos = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0 || !selectedStudent) return;
+
+    setUploading(true);
+    const toastId = toast.loading(`Uploading ${files.length} real face photo(s)...`);
+
+    try {
+      const b64Promises = files.map(file => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      }));
+
+      const imagesB64 = await Promise.all(b64Promises);
+      await api.post('/face/register', {
+        studentId: selectedStudent.studentId,
+        images: imagesB64
+      });
+
+      toast.success('Real face photos uploaded & biometrics updated successfully!', { id: toastId });
+      await fetchDatasets();
+    } catch (err) {
+      console.error('Upload real photos error:', err);
+      toast.error(err.response?.data?.message || 'Failed to upload real photos', { id: toastId });
+    } finally {
+      setUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -78,6 +116,14 @@ function FaceDatasets() {
       console.warn('API error clearing dataset:', err);
       toast.error('Failed to clear student dataset');
     }
+  };
+
+  const getImageKitThumbnail = (url) => {
+    if (!url) return '';
+    if (url.includes('ik.imagekit.io') && !url.includes('?tr=')) {
+      return `${url}?tr=w-300,h-300,fo-auto`;
+    }
+    return url;
   };
 
   const filteredDatasets = datasets.filter(d =>
@@ -166,20 +212,51 @@ function FaceDatasets() {
                     Last retrained / registered: <strong className="text-[var(--text)]">{selectedStudent.lastUpdated}</strong>
                   </p>
                 </div>
-                <button
-                  className="btn-ghost text-red-400 hover:text-red-500 hover:bg-red-50"
-                  onClick={() => handleClearDataset(selectedStudent.studentId)}
-                >
-                  <FiTrash2 /> Purge Biometrics
-                </button>
+                <div className="flex items-center gap-2">
+                  <label className="btn-secondary text-xs flex items-center gap-1.5 cursor-pointer">
+                    <FiUploadCloud size={14} className={uploading ? 'animate-bounce' : ''} />
+                    {uploading ? 'Uploading...' : 'Upload Real Photos'}
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleUploadRealPhotos}
+                      disabled={uploading}
+                    />
+                  </label>
+                  <button
+                    className="btn-ghost text-red-400 hover:text-red-500 hover:bg-red-50 text-xs flex items-center gap-1"
+                    onClick={() => handleClearDataset(selectedStudent.studentId)}
+                  >
+                    <FiTrash2 size={14} /> Purge
+                  </button>
+                </div>
               </div>
 
               {/* Gallery grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
                 {selectedStudent.images.map((img, idx) => (
-                  <div key={idx} className="relative rounded-xl overflow-hidden aspect-square border border-[var(--border)] group">
-                    <img src={img} alt={`face-${idx}`} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div key={idx} className="relative rounded-xl overflow-hidden aspect-square border border-[var(--border)] group bg-[var(--surface-elevated)]">
+                    <img
+                      src={getImageKitThumbnail(img)}
+                      alt={`face-${idx}`}
+                      className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => setPreviewImage(img)}
+                      onError={(e) => {
+                        // Fallback SVG graphic if dummy/broken URL
+                        e.target.onerror = null;
+                        e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%236366f1" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => setPreviewImage(img)}
+                        className="p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                        title="View image full resolution"
+                      >
+                        <FiInfo size={14} />
+                      </button>
                       <button
                         onClick={() => handleDeleteImage(selectedStudent.studentId, idx)}
                         className="p-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
@@ -195,8 +272,8 @@ function FaceDatasets() {
               <div className="p-4 rounded-xl flex gap-3" style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)' }}>
                 <FiInfo className="text-indigo-400 flex-shrink-0 mt-0.5" />
                 <div className="text-xs text-[var(--text-muted)] leading-relaxed">
-                  <p className="font-semibold text-indigo-400">Deep Neural Network Classification</p>
-                  <p className="mt-0.5">We store 10 high-resolution crops captured from multiple camera angles. If facial recognition performance drops for this student, we recommend purging biometrics and initiating a fresh capture sequence.</p>
+                  <p className="font-semibold text-indigo-400">Real Biometric Photo Inspection</p>
+                  <p className="mt-0.5">When students register their face via the Student Portal or Live Camera Capture, the actual captured face photos are stored and displayed here. Click any thumbnail to view in full resolution.</p>
                 </div>
               </div>
             </div>
@@ -209,6 +286,24 @@ function FaceDatasets() {
           )}
         </div>
       </div>
+
+      {/* Full-resolution preview modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="max-w-md w-full bg-[var(--surface)] p-4 rounded-3xl space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-sm text-[var(--text)]">Real Biometric Face Crop</h3>
+              <button onClick={() => setPreviewImage(null)} className="text-xs btn-ghost">Close</button>
+            </div>
+            <div className="aspect-square rounded-2xl overflow-hidden border border-[var(--border)]">
+              <img src={previewImage} alt="Full face preview" className="w-full h-full object-contain bg-black" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
