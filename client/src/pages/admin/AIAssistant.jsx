@@ -44,11 +44,18 @@ function AIAssistant() {
     setLoading(true);
 
     try {
-      const res = await api.post('/ai/chat', { prompt });
+      const history = messages.map(m => ({
+        role: m.sender === 'user' ? 'user' : 'model',
+        content: m.text
+      }));
+      const res = await api.post('/ai/chat', { message: prompt, history });
+      const data = res.data?.data || res.data;
+      const aiText = data?.content || data?.response || (typeof data === 'string' ? data : 'Understood.');
+
       const aiMsg = {
         id: Date.now() + 1,
         sender: 'ai',
-        text: res.data.response,
+        text: aiText,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, aiMsg]);

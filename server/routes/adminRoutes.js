@@ -7,7 +7,9 @@ import {
   deleteUser,
   getAuditLogs,
   getSystemHealth,
-  broadcastNotification
+  broadcastNotification,
+  getGeofenceSetting,
+  updateGeofenceSetting
 } from '../controllers/adminController.js';
 import verifyToken from '../middleware/auth.js';
 import authorize from '../middleware/roleAuth.js';
@@ -25,5 +27,8 @@ router.delete('/users/:id', deleteUser);
 router.get('/audit-logs', getAuditLogs);
 router.get('/system-health', getSystemHealth);
 router.post('/broadcast', broadcastNotification);
+
+router.get('/geofence', getGeofenceSetting);
+router.put('/geofence', updateGeofenceSetting);
 
 export default router;

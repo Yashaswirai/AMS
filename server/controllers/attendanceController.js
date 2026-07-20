@@ -4,6 +4,7 @@ import Student from '../models/Student.js';
 import Subject from '../models/Subject.js';
 import Teacher from '../models/Teacher.js';
 import Notification from '../models/Notification.js';
+import Setting from '../models/Setting.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
@@ -491,40 +492,75 @@ export const submitLiveSession = asyncHandler(async (req, res) => {
  * POST /api/v1/attendance/qr
  */
 export const markByQR = asyncHandler(async (req, res) => {
-  const { sessionId, studentId, location } = req.body;
+  const { sessionId: rawSessionId, qrToken, studentId: rawStudentId, location } = req.body;
 
-  const student = await Student.findById(studentId);
-  if (!student) throw ApiError.notFound('Student not found');
+  let sessionId = rawSessionId;
+  if (!sessionId && qrToken) {
+    try {
+      const parsed = JSON.parse(qrToken);
+      sessionId = parsed.sessionId || parsed.id || qrToken;
+    } catch {
+      sessionId = qrToken;
+    }
+  }
+
+  if (!sessionId) {
+    throw ApiError.badRequest('Session ID or QR Token is required');
+  }
+
+  let studentId = rawStudentId;
+  if (!studentId && req.user) {
+    const studentDoc = await Student.findOne({ user: req.user._id || req.user.id });
+    if (studentDoc) {
+      studentId = studentDoc._id;
+    }
+  }
+
+  if (!studentId) {
+    throw ApiError.notFound('Student profile not found for user');
+  }
+
+  const student = await Student.findById(studentId).populate('user', 'name rollNumber');
+  if (!student) throw ApiError.notFound('Student record not found');
 
   // Validate session
   const session = validateQRSession(sessionId, studentId);
 
-  // Geolocation check if configured
-  const reqLat = process.env.GEOLOCATION_LAT;
-  const reqLng = process.env.GEOLOCATION_LNG;
-  const radius = process.env.GEOLOCATION_RADIUS ? parseFloat(process.env.GEOLOCATION_RADIUS) : null;
+  // Geolocation check dynamically configured by Admin in DB
+  const geofenceDoc = await Setting.findOne({ key: 'geofence' });
+  const isGeofenceEnabled = geofenceDoc ? geofenceDoc.value?.enabled !== false : Boolean(process.env.GEOLOCATION_LAT);
+  
+  const reqLat = geofenceDoc?.value?.latitude ?? (process.env.GEOLOCATION_LAT ? parseFloat(process.env.GEOLOCATION_LAT) : null);
+  const reqLng = geofenceDoc?.value?.longitude ?? (process.env.GEOLOCATION_LNG ? parseFloat(process.env.GEOLOCATION_LNG) : null);
+  const radius = geofenceDoc?.value?.radiusMeters ?? (process.env.GEOLOCATION_RADIUS ? parseFloat(process.env.GEOLOCATION_RADIUS) : 100);
+  const locationName = geofenceDoc?.value?.locationName || 'Campus Lecture Hall';
 
-  if (reqLat && reqLng && radius) {
-    if (!location || location.lat === undefined || location.lng === undefined) {
-      throw ApiError.badRequest('Location is required for QR attendance check');
+  if (isGeofenceEnabled && reqLat !== null && reqLng !== null && radius) {
+    const userLat = location?.lat ?? location?.latitude;
+    const userLng = location?.lng ?? location?.longitude;
+
+    if (userLat === undefined || userLng === undefined) {
+      throw ApiError.badRequest(`Location permission is required for campus geofenced check-in (${locationName}).`);
     }
 
     const distance = calculateDistance(
       parseFloat(reqLat),
       parseFloat(reqLng),
-      location.lat,
-      location.lng
+      parseFloat(userLat),
+      parseFloat(userLng)
     );
 
     if (distance > radius) {
-      throw ApiError.badRequest(`Location verification failed. You are ${Math.round(distance)}m away from the class (max allowed: ${radius}m).`);
+      throw ApiError.badRequest(`Geofence Verification Failed: You are ${Math.round(distance)}m away from ${locationName} (max allowed: ${radius}m).`);
     }
   }
 
   const formattedDate = new Date(session.date);
   formattedDate.setHours(0, 0, 0, 0);
 
-  // Create attendance record
+  const subjectDoc = await Subject.findById(session.subjectId);
+
+  // Create or update attendance record
   let attendance = await Attendance.findOne({
     student: studentId,
     subject: session.subjectId,
@@ -536,7 +572,7 @@ export const markByQR = asyncHandler(async (req, res) => {
     attendance.status = ATTENDANCE_STATUS.PRESENT;
     attendance.method = ATTENDANCE_METHOD.QR;
     attendance.qrSessionId = sessionId;
-    attendance.markedBy = student.user; // Student marked themselves via QR
+    attendance.markedBy = student.user?._id || student.user; // Student marked themselves via QR
     await attendance.save();
   } else {
     attendance = await Attendance.create({
@@ -547,7 +583,7 @@ export const markByQR = asyncHandler(async (req, res) => {
       status: ATTENDANCE_STATUS.PRESENT,
       method: ATTENDANCE_METHOD.QR,
       qrSessionId: sessionId,
-      markedBy: student.user,
+      markedBy: student.user?._id || student.user,
     });
   }
 
@@ -560,16 +596,26 @@ export const markByQR = asyncHandler(async (req, res) => {
   if (io) {
     io.emit('attendanceMarked', {
       attendanceId: attendance._id,
-      studentId,
+      studentId: student._id,
+      name: student.user?.name || `Student ${student.rollNumber}`,
+      rollNumber: student.rollNumber,
       subjectId: session.subjectId,
+      subjectName: subjectDoc?.name || 'Subject',
+      subjectCode: subjectDoc?.code || '',
       status: ATTENDANCE_STATUS.PRESENT,
       date: formattedDate,
       period: session.period,
       method: 'qr',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     });
   }
 
-  return new ApiResponse(200, attendance, 'Attendance marked successfully via QR scan').send(res);
+  return new ApiResponse(200, {
+    attendance,
+    subject: subjectDoc?.name || 'Class Lecture',
+    subjectCode: subjectDoc?.code || '',
+    status: ATTENDANCE_STATUS.PRESENT,
+  }, 'Attendance marked successfully via QR scan').send(res);
 });
 
 /**
@@ -577,22 +623,39 @@ export const markByQR = asyncHandler(async (req, res) => {
  * Generate a QR session
  */
 export const generateQRSession = asyncHandler(async (req, res) => {
-  const { subjectId, period, date = new Date(), expirySeconds } = req.body;
+  const { subjectId, subjectCode, period, date = new Date(), expirySeconds } = req.body;
 
-  if (!subjectId || !period) {
-    throw ApiError.badRequest('Subject ID and Period are required');
+  let targetSubjectId = subjectId;
+  if (!targetSubjectId && subjectCode) {
+    const sDoc = await Subject.findOne({
+      $or: [
+        { code: subjectCode.toUpperCase() },
+        { code: subjectCode },
+        { _id: mongoose.Types.ObjectId.isValid(subjectCode) ? subjectCode : null }
+      ].filter(Boolean)
+    });
+    if (sDoc) targetSubjectId = sDoc._id;
   }
 
-  const subject = await Subject.findById(subjectId);
+  if (!targetSubjectId || !period) {
+    throw ApiError.badRequest('Subject (ID or Code) and Period are required');
+  }
+
+  const subject = await Subject.findById(targetSubjectId);
   if (!subject) throw ApiError.notFound('Subject not found');
 
   // Find teacher profile of requesting user
+  let teacherId = req.user.id;
   const teacher = await Teacher.findOne({ user: req.user.id });
-  if (!teacher) throw ApiError.forbidden('Only teachers can generate QR sessions');
+  if (teacher) {
+    teacherId = teacher._id;
+  } else if (req.user.role !== 'admin') {
+    throw ApiError.forbidden('Only teachers can generate QR sessions');
+  }
 
   const session = await createQR({
-    subjectId,
-    teacherId: teacher._id,
+    subjectId: targetSubjectId,
+    teacherId,
     date,
     period,
     expirySeconds,

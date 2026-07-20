@@ -53,12 +53,19 @@ export const markBulkValidator = [
 ];
 
 export const markByQRValidator = [
+  body().custom((value, { req }) => {
+    if (!req.body.sessionId && !req.body.qrToken) {
+      throw new Error('Either sessionId or qrToken is required');
+    }
+    return true;
+  }),
+
   body('sessionId')
-    .notEmpty().withMessage('QR session ID is required')
+    .optional()
     .isUUID().withMessage('Invalid session ID format'),
 
   body('studentId')
-    .notEmpty().withMessage('Student ID is required')
+    .optional()
     .isMongoId().withMessage('Invalid student ID format'),
 
   body('location')
@@ -70,6 +77,14 @@ export const markByQRValidator = [
     .isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
 
   body('location.lng')
+    .optional()
+    .isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
+
+  body('location.latitude')
+    .optional()
+    .isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
+
+  body('location.longitude')
     .optional()
     .isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
 ];

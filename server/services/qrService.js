@@ -58,6 +58,7 @@ export const generateQRSession = async ({ subjectId, teacherId, date, period, ex
   return {
     sessionId,
     qrCode: qrDataURL,
+    qrPayload,
     expiresAt: new Date(expiresAt).toISOString(),
     expiresInSeconds: expiry,
     subjectId,

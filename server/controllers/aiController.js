@@ -8,7 +8,8 @@ import Student from '../models/Student.js';
  * POST /api/v1/ai/chat
  */
 export const chat = asyncHandler(async (req, res) => {
-  const { message, history = [], studentId } = req.body;
+  const { message: rawMessage, prompt, history = [], studentId } = req.body;
+  const message = rawMessage || prompt;
 
   if (!message) {
     throw ApiError.badRequest('Message is required');

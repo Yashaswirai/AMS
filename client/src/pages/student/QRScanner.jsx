@@ -53,26 +53,33 @@ function StudentQRScanner() {
     const toastId = toast.loading('Verifying encrypted check-in token...');
 
     try {
+      let sessionId = qrDataString;
       let payload = {
         qrToken: qrDataString,
-        location: location || { latitude: 28.6139, longitude: 77.2090 }
+        location: location ? {
+          lat: location.latitude,
+          lng: location.longitude,
+          latitude: location.latitude,
+          longitude: location.longitude
+        } : { lat: 28.6139, lng: 77.2090, latitude: 28.6139, longitude: 77.2090 }
       };
 
-      // Try parsing JSON if token is encoded JSON object
       try {
         const parsed = JSON.parse(qrDataString);
-        payload.subjectCode = parsed.subjectCode;
-        payload.period = parsed.period;
-        payload.sessionId = parsed.salt || parsed.signature;
+        sessionId = parsed.sessionId || parsed.id || parsed.salt || parsed.signature || qrDataString;
+        payload.sessionId = sessionId;
+        if (parsed.subjectId) payload.subjectId = parsed.subjectId;
+        if (parsed.subjectCode) payload.subjectCode = parsed.subjectCode;
+        if (parsed.period) payload.period = parsed.period;
       } catch (e) {
-        // Raw string token
+        payload.sessionId = sessionId;
       }
 
       const res = await api.post('/attendance/mark-qr', payload);
       const data = res.data?.data || res.data;
 
       setSuccessResult({
-        subject: data.subject || payload.subjectCode || 'Class Lecture',
+        subject: data.subject || data.subjectName || payload.subjectCode || 'Class Lecture',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         status: 'PRESENT'
       });
@@ -89,41 +96,78 @@ function StudentQRScanner() {
     }
   };
 
-  const startScanner = () => {
+  const startScanner = async () => {
     setScanning(true);
     setSuccessResult(null);
     setErrorMsg(null);
 
-    setTimeout(() => {
+    // Request camera permission explicitly first if supported
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+    } catch (e) {
+      console.warn('Camera permission request notice:', e);
+    }
+
+    setTimeout(async () => {
       try {
-        const scanner = new Html5QrcodeScanner(
-          'qr-reader-container',
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          false
-        );
+        if (scannerRef.current) {
+          try { await scannerRef.current.stop(); } catch {}
+          try { scannerRef.current.clear(); } catch {}
+        }
 
-        scanner.render(
-          (decodedText) => {
-            scanner.clear().catch(() => {});
-            handleProcessQrData(decodedText);
-          },
-          (errorMessage) => {
-            // Ignore scan attempt errors
+        const html5QrCode = new Html5Qrcode('qr-reader-container');
+        scannerRef.current = html5QrCode;
+
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        const qrCodeSuccessCallback = (decodedText) => {
+          if (scannerRef.current) {
+            scannerRef.current.stop().then(() => {
+              try { scannerRef.current.clear(); } catch {}
+              scannerRef.current = null;
+            }).catch(() => {
+              scannerRef.current = null;
+            });
           }
-        );
+          handleProcessQrData(decodedText);
+        };
 
-        scannerRef.current = scanner;
+        // Try environment camera first (mobile rear camera), fallback to user webcam
+        html5QrCode.start({ facingMode: 'environment' }, config, qrCodeSuccessCallback, () => {})
+          .catch(async (err) => {
+            console.warn('Environment camera failed, attempting user camera fallback:', err);
+            return html5QrCode.start({ facingMode: 'user' }, config, qrCodeSuccessCallback, () => {});
+          })
+          .catch((err) => {
+            console.error('All camera attempts failed:', err);
+            const msg = 'Camera access blocked or unavailable. Please grant camera permission in your browser settings or use manual code validation.';
+            setErrorMsg(msg);
+            toast.error(msg);
+            setScanning(false);
+          });
       } catch (err) {
         console.error('Failed to initialize HTML5 QR scanner:', err);
-        toast.error('Unable to access camera scanner. Try manual token validation below.');
+        toast.error('Unable to initialize camera scanner. Use manual token validation below.');
+        setScanning(false);
       }
-    }, 100);
+    }, 150);
   };
 
   const stopScanner = () => {
     if (scannerRef.current) {
-      scannerRef.current.clear().catch(() => {});
-      scannerRef.current = null;
+      try {
+        scannerRef.current.stop().then(() => {
+          try { scannerRef.current.clear(); } catch {}
+          scannerRef.current = null;
+        }).catch(() => {
+          try { scannerRef.current.clear(); } catch {}
+          scannerRef.current = null;
+        });
+      } catch {
+        scannerRef.current = null;
+      }
     }
     setScanning(false);
   };
@@ -131,7 +175,10 @@ function StudentQRScanner() {
   useEffect(() => {
     return () => {
       if (scannerRef.current) {
-        scannerRef.current.clear().catch(() => {});
+        try {
+          scannerRef.current.stop().catch(() => {});
+          scannerRef.current.clear();
+        } catch {}
       }
     };
   }, []);

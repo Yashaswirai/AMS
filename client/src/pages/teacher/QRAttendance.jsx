@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { FiRefreshCw, FiPlay, FiSquare, FiUsers, FiClock, FiShield } from 'react-icons/fi';
+import { io } from 'socket.io-client';
 import api from '../../services/api.js';
 import toast from 'react-hot-toast';
 
 function QRAttendance() {
   const [subjectsList, setSubjectsList] = useState([]);
-  const [subjectCode, setSubjectCode] = useState('');
+  const [subjectId, setSubjectId] = useState('');
   const [period, setPeriod] = useState('1');
   const [isActive, setIsActive] = useState(false);
   const [qrToken, setQrToken] = useState('');
+  const [sessionId, setSessionId] = useState('');
   const [timeLeft, setTimeLeft] = useState(15);
   const [scannedStudents, setScannedStudents] = useState([]);
 
@@ -18,26 +20,72 @@ function QRAttendance() {
     api.get('/subjects').then(res => {
       const raw = res.data?.data || res.data?.subjects || res.data || [];
       setSubjectsList(raw);
+      if (raw.length > 0 && !subjectId) {
+        setSubjectId(raw[0]._id || raw[0].id || raw[0].code);
+      }
     }).catch(() => {});
   }, []);
 
-  // Generate secure rotation token
-  const generateToken = () => {
-    if (!subjectCode) return;
-    const salt = Math.random().toString(36).substring(2, 7).toUpperCase();
-    const tokenData = {
-      subjectCode,
-      period,
-      timestamp: Date.now(),
-      salt,
-      signature: `AMS-SECURE-${salt}`
+  // Real-time socket listener for student check-ins
+  useEffect(() => {
+    let socket;
+    if (isActive) {
+      try {
+        const socketUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '/';
+        socket = io(socketUrl, { withCredentials: true });
+        
+        socket.on('attendanceMarked', (data) => {
+          if (data && (data.method === 'qr' || data.studentId)) {
+            setScannedStudents(prev => {
+              const exists = prev.some(s => (data.studentId && s.studentId === data.studentId) || (data.rollNumber && s.rollNumber === data.rollNumber));
+              if (exists) return prev;
+              
+              toast.success(`Check-in: ${data.name || data.rollNumber}`);
+              return [{
+                studentId: data.studentId,
+                name: data.name || `Student ${data.rollNumber}`,
+                rollNumber: data.rollNumber || 'N/A',
+                time: data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              }, ...prev];
+            });
+          }
+        });
+      } catch (err) {
+        console.warn('Socket connection error:', err);
+      }
+    }
+    return () => {
+      if (socket) socket.disconnect();
     };
-    
-    setQrToken(JSON.stringify(tokenData));
-    setTimeLeft(15);
+  }, [isActive]);
+
+  // Generate authentic backend rotation token
+  const generateToken = async (subId = subjectId, periodVal = period) => {
+    if (!subId) return;
+    try {
+      const res = await api.post('/attendance/qr-session', {
+        subjectId: subId,
+        period: periodVal,
+        expirySeconds: 20
+      });
+      const data = res.data?.data || res.data;
+      const payloadStr = data.qrPayload || JSON.stringify({
+        sessionId: data.sessionId,
+        subjectId: data.subjectId,
+        period: data.period,
+        expiresAt: data.expiresAt
+      });
+
+      setQrToken(payloadStr);
+      setSessionId(data.sessionId);
+      setTimeLeft(15);
+    } catch (err) {
+      console.error('Failed to generate backend QR session:', err);
+      toast.error(err.response?.data?.message || 'Error generating QR session token');
+    }
   };
 
-  // Rotation timer - strictly generates new QR token without fake automatic scans
+  // Rotation timer - requests live new token from backend
   useEffect(() => {
     let timer;
     if (isActive) {
@@ -52,23 +100,24 @@ function QRAttendance() {
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [isActive, subjectCode, period]);
+  }, [isActive, subjectId, period]);
 
-  const handleStart = () => {
-    if (!subjectCode) {
+  const handleStart = async () => {
+    if (!subjectId) {
       toast.error('Select a subject to open class session');
       return;
     }
     setScannedStudents([]);
     setIsActive(true);
-    generateToken();
-    toast.success('Secure Rotating QR Scanner Online');
+    await generateToken(subjectId, period);
+    toast.success('Secure Rotating QR Check-In Live');
   };
 
   const handleStop = () => {
     setIsActive(false);
     setQrToken('');
-    toast.success('QR Code Check-in session closed. Syncing database logs.');
+    setSessionId('');
+    toast.success('QR Code Check-in session closed.');
   };
 
   return (
@@ -89,13 +138,15 @@ function QRAttendance() {
               <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-subtle)]">Course Subject</label>
               <select
                 className="input-field"
-                value={subjectCode}
-                onChange={(e) => setSubjectCode(e.target.value)}
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
                 disabled={isActive}
               >
                 <option value="">Select Class...</option>
                 {subjectsList.map(s => (
-                  <option key={s._id || s.code} value={s.code || s._id}>{s.code ? `${s.code} - ${s.name}` : s.name}</option>
+                  <option key={s._id || s.id || s.code} value={s._id || s.id || s.code}>
+                    {s.code ? `${s.code} - ${s.name}` : s.name}
+                  </option>
                 ))}
               </select>
             </div>

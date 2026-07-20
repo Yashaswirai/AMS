@@ -73,9 +73,10 @@ function AdminDashboard() {
       if (Array.isArray(insights) && insights.length > 0) {
         setAiInsights(insights.map((item, idx) => ({
           id: idx,
-          severity: item.severity || 'info',
-          msg: item.message || item.msg || 'System insight generated',
-          subject: item.subject || 'General'
+          title: item.title || 'Attendance Alert',
+          severity: item.impact || item.severity || 'info',
+          msg: item.observation || item.message || item.msg || item.title || 'Attendance System Insight',
+          recommendation: item.recommendation || ''
         })));
       } else {
         setAiInsights([]);
@@ -156,7 +157,7 @@ function AdminDashboard() {
             </div>
             <span className="badge badge-info">{aiInsights.length} active alerts</span>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
             {aiInsights.map((alert, i) => {
               const style = getSeverityStyle(alert.severity);
               return (
@@ -170,8 +171,13 @@ function AdminDashboard() {
                 >
                   <RiAlertLine style={{ color: style.color, flexShrink: 0, marginTop: 2 }} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{alert.msg}</p>
-                    {alert.subject && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Target: {alert.subject}</p>}
+                    <p className="text-sm font-bold text-[var(--text)]">{alert.title}</p>
+                    <p className="text-xs mt-0.5 text-[var(--text-muted)]">{alert.msg}</p>
+                    {alert.recommendation && (
+                      <p className="text-xs mt-1.5 text-indigo-400 font-medium flex items-center gap-1">
+                        💡 {alert.recommendation}
+                      </p>
+                    )}
                   </div>
                   <span className={`badge ${style.badge} flex-shrink-0`}>{alert.severity}</span>
                 </motion.div>
@@ -189,7 +195,7 @@ function AdminDashboard() {
         {/* Recent Activity */}
         <div className="card rounded-2xl p-6">
           <h3 className="font-bold mb-4" style={{ color: 'var(--text)' }}>Recent System Activity</h3>
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
             {recentActivity.map((item) => (
               <motion.div
                 key={item.id}
@@ -216,6 +222,173 @@ function AdminDashboard() {
 
       {/* Course chart */}
       <AttendanceBarChart data={courseData} title="Course-wise Attendance Distribution" horizontal />
+
+      {/* Admin Geofencing Control Section */}
+      <GeofenceSettingsCard />
+    </div>
+  );
+}
+
+function GeofenceSettingsCard() {
+  const [geofence, setGeofence] = useState({
+    enabled: true,
+    latitude: 28.6139,
+    longitude: 77.2090,
+    radiusMeters: 100,
+    locationName: 'Main Campus Lecture Building'
+  });
+  const [saving, setSaving] = useState(false);
+  const [fetchingLoc, setFetchingLoc] = useState(false);
+
+  useEffect(() => {
+    api.get('/admin/geofence')
+      .then(res => {
+        const data = res.data?.data || res.data;
+        if (data) setGeofence(data);
+      })
+      .catch(err => console.warn('Failed to load geofence settings:', err));
+  }, []);
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await api.put('/admin/geofence', geofence);
+      const updated = res.data?.data || res.data;
+      setGeofence(updated);
+      alert('Geofence configuration saved successfully!');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to save geofence configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAcquireGPS = () => {
+    if ('geolocation' in navigator) {
+      setFetchingLoc(true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGeofence(prev => ({
+            ...prev,
+            latitude: parseFloat(pos.coords.latitude.toFixed(6)),
+            longitude: parseFloat(pos.coords.longitude.toFixed(6))
+          }));
+          setFetchingLoc(false);
+        },
+        (err) => {
+          alert('GPS Location access denied or timed out.');
+          setFetchingLoc(false);
+        },
+        { timeout: 10000 }
+      );
+    } else {
+      alert('Geolocation is not supported by your browser.');
+    }
+  };
+
+  return (
+    <div className="card rounded-2xl p-6 mt-6 space-y-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[var(--border)] pb-4 gap-3">
+        <div>
+          <h3 className="font-bold text-lg text-[var(--text)] flex items-center gap-2">
+            📍 Campus Geofencing Configuration
+          </h3>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">
+            Restrict student QR Code Attendance check-ins strictly to designated physical GPS campus coordinates.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider ${geofence.enabled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>
+            {geofence.enabled ? '✓ Geofence Active' : '✕ Disabled'}
+          </span>
+        </div>
+      </div>
+
+      <form onSubmit={handleSave} className="space-y-4 pt-2">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)]">
+          <div>
+            <p className="text-xs font-bold text-[var(--text)]">Enable Geofencing Enforcer</p>
+            <p className="text-[10px] text-[var(--text-subtle)]">Students outside radius will be blocked during QR check-in</p>
+          </div>
+          <input
+            type="checkbox"
+            checked={geofence.enabled}
+            onChange={(e) => setGeofence(prev => ({ ...prev, enabled: e.target.checked }))}
+            className="w-5 h-5 accent-indigo-500 cursor-pointer"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-[var(--text-subtle)]">Location Name</label>
+            <input
+              type="text"
+              className="input-field text-xs"
+              value={geofence.locationName || ''}
+              onChange={(e) => setGeofence(prev => ({ ...prev, locationName: e.target.value }))}
+              placeholder="e.g. Main Campus Block A"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-[var(--text-subtle)]">Latitude</label>
+            <input
+              type="number"
+              step="any"
+              className="input-field text-xs"
+              value={geofence.latitude}
+              onChange={(e) => setGeofence(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-[var(--text-subtle)]">Longitude</label>
+            <input
+              type="number"
+              step="any"
+              className="input-field text-xs"
+              value={geofence.longitude}
+              onChange={(e) => setGeofence(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-[var(--text-subtle)]">Max Radius (Meters)</label>
+            <input
+              type="number"
+              className="input-field text-xs"
+              value={geofence.radiusMeters}
+              onChange={(e) => setGeofence(prev => ({ ...prev, radiusMeters: parseInt(e.target.value) || 50 }))}
+              min="10"
+              max="5000"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={handleAcquireGPS}
+            disabled={fetchingLoc}
+            className="btn-secondary py-2 px-4 text-xs rounded-xl flex items-center gap-1.5"
+          >
+            {fetchingLoc ? 'Acquiring GPS...' : '📍 Use My Current GPS Location'}
+          </button>
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="btn-primary py-2 px-6 text-xs rounded-xl"
+          >
+            {saving ? 'Saving...' : 'Save Geofence Settings'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

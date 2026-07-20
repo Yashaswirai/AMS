@@ -34,7 +34,9 @@ router.post('/bulk', authorize('admin', 'teacher'), markBulkValidator, validate,
 router.post('/face', authorize('admin', 'teacher'), faceLimiter, handleMulterError(uploadFaceImage), markByFace);
 router.post('/submit-session', authorize('admin', 'teacher'), submitLiveSession);
 router.post('/qr', authorize('student'), markByQRValidator, validate, markByQR);
+router.post('/mark-qr', authorize('student'), markByQRValidator, validate, markByQR);
 router.post('/qr-session', authorize('admin', 'teacher'), generateQRSession);
+router.post('/generate-qr', authorize('admin', 'teacher'), generateQRSession);
 
 router.get('/history', authorize('admin', 'teacher', 'student'), getHistory);
 router.get('/stats/:studentId', authorize('admin', 'teacher', 'student'), getStats);

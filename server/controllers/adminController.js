@@ -7,6 +7,7 @@ import Subject from '../models/Subject.js';
 import Attendance from '../models/Attendance.js';
 import AuditLog from '../models/AuditLog.js';
 import Notification from '../models/Notification.js';
+import Setting from '../models/Setting.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
@@ -196,4 +197,54 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
   await Notification.insertMany(notifications, { ordered: false });
 
   return new ApiResponse(200, { sent: notifications.length }, `Notification broadcast to ${notifications.length} users`).send(res);
+});
+
+/**
+ * GET /api/v1/admin/geofence
+ */
+export const getGeofenceSetting = asyncHandler(async (req, res) => {
+  let setting = await Setting.findOne({ key: 'geofence' });
+  if (!setting) {
+    setting = await Setting.create({
+      key: 'geofence',
+      value: {
+        enabled: true,
+        latitude: parseFloat(process.env.GEOLOCATION_LAT) || 28.6139,
+        longitude: parseFloat(process.env.GEOLOCATION_LNG) || 77.2090,
+        radiusMeters: parseFloat(process.env.GEOLOCATION_RADIUS) || 100,
+        locationName: 'Main Campus Lecture Hall'
+      },
+      description: 'Campus Geofencing Location & Radius Settings'
+    });
+  }
+  return new ApiResponse(200, setting.value, 'Geofence setting fetched successfully').send(res);
+});
+
+/**
+ * PUT /api/v1/admin/geofence
+ */
+export const updateGeofenceSetting = asyncHandler(async (req, res) => {
+  const { enabled, latitude, longitude, radiusMeters, locationName } = req.body;
+
+  let setting = await Setting.findOne({ key: 'geofence' });
+  const newValue = {
+    enabled: enabled !== undefined ? Boolean(enabled) : true,
+    latitude: latitude !== undefined ? parseFloat(latitude) : (setting?.value?.latitude || 28.6139),
+    longitude: longitude !== undefined ? parseFloat(longitude) : (setting?.value?.longitude || 77.2090),
+    radiusMeters: radiusMeters !== undefined ? parseFloat(radiusMeters) : (setting?.value?.radiusMeters || 100),
+    locationName: locationName || setting?.value?.locationName || 'Campus Building'
+  };
+
+  if (setting) {
+    setting.value = newValue;
+    await setting.save();
+  } else {
+    setting = await Setting.create({
+      key: 'geofence',
+      value: newValue,
+      description: 'Campus Geofencing Location & Radius Settings'
+    });
+  }
+
+  return new ApiResponse(200, setting.value, 'Geofence configuration updated successfully').send(res);
 });
